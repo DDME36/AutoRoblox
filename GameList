@@ -1,0 +1,5 @@
+return {
+    [458667298] = "https://github.com/DDME36/AutoRoblox/blob/main/NinjaLegendsAuto.lua" -- PlaceID ของ Ninja Legends
+    -- เพิ่มเกมอื่นๆ ได้ เช่น:
+    -- [123456789] = "https://raw.githubusercontent.com/YOUR_USERNAME/NinjaLegendsScript/main/OtherGame.lua"
+}
