@@ -3,10 +3,10 @@ local replicatedStorage = game:GetService("ReplicatedStorage")
 local virtualUser = game:GetService("VirtualUser")
 
 -- อ้างอิง Remote Events (ต้องเปลี่ยนตามชื่อจริงในเกม)
-local swingEvent = replicatedStorage:FindFirstChild("Swing") -- ชื่อ Remote สำหรับตี (อาจเป็น Swing, Attack)
+local swingEvent = replicatedStorage:FindFirstChild("Swing") -- ชื่อ Remote สำหรับตี
 local sellEvent = replicatedStorage:FindFirstChild("Sell") -- ชื่อ Remote สำหรับขาย
-local buyEvent = replicatedStorage:FindFirstChild("BuyPet") -- ชื่อ Remote สำหรับซื้อ (อาจเป็น PurchasePet, BuyItem)
-local collectEvent = replicatedStorage:FindFirstChild("Collect") -- ชื่อ Remote สำหรับเก็บทรัพยากร
+local buyEvent = replicatedStorage:FindFirstChild("BuyPet") -- ชื่อ Remote สำหรับซื้อ
+local collectEvent = replicatedStorage:FindFirstChild("Collect") -- ชื่อ Remote สำหรับเก็บ
 
 -- ชื่อไอเทมที่ต้องการซื้อ
 local itemToBuy = "CommonPet" -- แก้ไขตามชื่อในเกม เช่น "RarePet", "EpicSword"
@@ -17,14 +17,15 @@ local autoSellEnabled = false
 local autoBuyEnabled = false
 local autoCollectEnabled = false
 
--- โหลด Orion UI Library (UI ย่อ สวยงาม รองรับ Delta Executor)
-local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+-- โหลด Orion UI Library
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
 local Window = OrionLib:MakeWindow({
-    Name = "Ninja Legends Auto",
+    Name = "Ninja Auto",
     HidePremium = true,
     SaveConfig = false,
-    IntroText = "Ninja Auto Script",
-    IntroIcon = "rbxassetid://7733964719" -- ไอคอนนินจา
+    IntroText = "Ninja Legends",
+    IntroIcon = "rbxassetid://7733964719",
+    Size = UDim2.new(0, 300, 0, 200)
 })
 
 -- Tab หลัก
@@ -42,7 +43,7 @@ local function autoSwing()
         else
             OrionLib:MakeNotification({
                 Name = "Error",
-                Content = "Swing Remote not found!",
+                Content = "Swing Remote not found! Check Remote Events.",
                 Time = 5
             })
             break
@@ -59,7 +60,7 @@ local function autoSell()
         else
             OrionLib:MakeNotification({
                 Name = "Error",
-                Content = "Sell Remote not found!",
+                Content = "Sell Remote not found! Check Remote Events.",
                 Time = 5
             })
             break
@@ -76,7 +77,7 @@ local function autoBuy()
         else
             OrionLib:MakeNotification({
                 Name = "Error",
-                Content = "Buy Remote not found!",
+                Content = "Buy Remote not found! Check Remote Events.",
                 Time = 5
             })
             break
@@ -93,7 +94,7 @@ local function autoCollect()
         else
             OrionLib:MakeNotification({
                 Name = "Error",
-                Content = "Collect Remote not found!",
+                Content = "Collect Remote not found! Check Remote Events.",
                 Time = 5
             })
             break
@@ -119,20 +120,7 @@ MainTab:AddToggle({
     Default = false,
     Callback = function(state)
         autoSwingEnabled = state
-        if state then
-            spawn(autoSwing)
-            OrionLib:MakeNotification({
-                Name = "Auto Swing",
-                Content = "Auto Swing Enabled",
-                Time = 3
-            })
-        else
-            OrionLib:MakeNotification({
-                Name = "Auto Swing",
-                Content = "Auto Swing Disabled",
-                Time = 3
-            })
-        end
+        if state พิมพ์ว่า "เปิดใช้งาน Auto Swing" else พิมพ์ว่า "ปิดใช้งาน Auto Swing" end
     end
 })
 
@@ -141,20 +129,7 @@ MainTab:AddToggle({
     Default = false,
     Callback = function(state)
         autoSellEnabled = state
-        if state then
-            spawn(autoSell)
-            OrionLib:MakeNotification({
-                Name = "Auto Sell",
-                Content = "Auto Sell Enabled",
-                Time = 3
-            })
-        else
-            OrionLib:MakeNotification({
-                Name = "Auto Sell",
-                Content = "Auto Sell Disabled",
-                Time = 3
-            })
-        end
+        if state พิมพ์ว่า "เปิดใช้งาน Auto Sell" else พิมพ์ว่า "ปิดใช้งาน Auto Sell" end
     end
 })
 
@@ -163,20 +138,7 @@ MainTab:AddToggle({
     Default = false,
     Callback = function(state)
         autoBuyEnabled = state
-        if state then
-            spawn(autoBuy)
-            OrionLib:MakeNotification({
-                Name = "Auto Buy",
-                Content = "Auto Buy Enabled for " .. itemToBuy,
-                Time = 3
-            })
-        else
-            OrionLib:MakeNotification({
-                Name = "Auto Buy",
-                Content = "Auto Buy Disabled",
-                Time = 3
-            })
-        end
+        if state พิมพ์ว่า "เปิดใช้งาน Auto Buy สำหรับ " .. itemToBuy else พิมพ์ว่า "ปิดใช้งาน Auto Buy" end
     end
 })
 
@@ -185,20 +147,7 @@ MainTab:AddToggle({
     Default = false,
     Callback = function(state)
         autoCollectEnabled = state
-        if state then
-            spawn(autoCollect)
-            OrionLib:MakeNotification({
-                Name = "Auto Collect",
-                Content = "Auto Collect Enabled",
-                Time = 3
-            })
-        else
-            OrionLib:MakeNotification({
-                Name = "Auto Collect",
-                Content = "Auto Collect Disabled",
-                Time = 3
-            })
-        end
+        if state พิมพ์ว่า "เปิดใช้งาน Auto Collect" else พิมพ์ว่า "ปิดใช้งาน Auto Collect" end
     end
 })
 
@@ -209,11 +158,7 @@ MainTab:AddTextbox({
     TextDisappear = true,
     Callback = function(value)
         itemToBuy = value
-        OrionLib:MakeNotification({
-            Name = "Settings",
-            Content = "Item to buy set to: " .. itemToBuy,
-            Time = 3
-        })
+        พิมพ์ว่า "ตั้งค่าไอเทมที่จะซื้อเป็น: " .. itemToBuy
     end
 })
 
@@ -229,7 +174,7 @@ MainTab:AddButton({
         end
         OrionLib:MakeNotification({
             Name = "Remote Events",
-            Content = remotes ~= "" and remotes or "No Remotes found!",
+            Content = remotes ~= "" and remotes or "ไม่พบ Remote!",
             Time = 10
         })
     end
@@ -238,7 +183,7 @@ MainTab:AddButton({
 -- แจ้งว่าเริ่มรัน
 OrionLib:MakeNotification({
     Name = "Ninja Legends Auto",
-    Content = "Script Loaded! Use toggles to control.",
+    Content = "สคริปต์โหลดสำเร็จ! ใช้ toggle เพื่อควบคุม",
     Image = "rbxassetid://7733964719",
     Time = 5
 })
