@@ -2,38 +2,52 @@ local player = game:GetService("Players").LocalPlayer
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local virtualUser = game:GetService("VirtualUser")
 
--- อ้างอิง Remote Events (เปลี่ยนชื่อตาม Remote จริงในเกม)
-local swingEvent = replicatedStorage:FindFirstChild("SwingEvent") -- ชื่อ Remote สำหรับตี
-local sellEvent = replicatedStorage:FindFirstChild("SellEvent") -- ชื่อ Remote สำหรับขาย
-local buyEvent = replicatedStorage:FindFirstChild("PurchasePetEvent") -- ชื่อ Remote สำหรับซื้อ
+-- อ้างอิง Remote Events (ต้องเปลี่ยนตามชื่อจริงในเกม)
+local swingEvent = replicatedStorage:FindFirstChild("Swing") -- ชื่อ Remote สำหรับตี (อาจเป็น Swing, Attack)
+local sellEvent = replicatedStorage:FindFirstChild("Sell") -- ชื่อ Remote สำหรับขาย
+local buyEvent = replicatedStorage:FindFirstChild("BuyPet") -- ชื่อ Remote สำหรับซื้อ (อาจเป็น PurchasePet, BuyItem)
+local collectEvent = replicatedStorage:FindFirstChild("Collect") -- ชื่อ Remote สำหรับเก็บทรัพยากร
 
--- ชื่อไอเทมที่ต้องการซื้อ (แก้ไขตามต้องการ)
-local itemToBuy = "CommonPet" -- ตัวอย่าง: "CommonPet", "RarePet", "LegendarySword"
+-- ชื่อไอเทมที่ต้องการซื้อ
+local itemToBuy = "CommonPet" -- แก้ไขตามชื่อในเกม เช่น "RarePet", "EpicSword"
 
--- สถานะการทำงานของแต่ละฟีเจอร์
+-- สถานะฟีเจอร์
 local autoSwingEnabled = false
 local autoSellEnabled = false
 local autoBuyEnabled = false
+local autoCollectEnabled = false
 
--- โหลด Kavo UI Library
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("Ninja Legends Auto Script", "Synapse")
+-- โหลด Orion UI Library (UI ย่อ สวยงาม รองรับ Delta Executor)
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+local Window = OrionLib:MakeWindow({
+    Name = "Ninja Legends Auto",
+    HidePremium = true,
+    SaveConfig = false,
+    IntroText = "Ninja Auto Script",
+    IntroIcon = "rbxassetid://7733964719" -- ไอคอนนินจา
+})
 
--- ส่วน UI: Tab หลัก
-local MainTab = Window:NewTab("Main Features")
-local MainSection = MainTab:NewSection("Auto Features")
+-- Tab หลัก
+local MainTab = Window:MakeTab({
+    Name = "Main",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
 
 -- ฟังก์ชัน Auto Swing
 local function autoSwing()
     while autoSwingEnabled do
         if swingEvent then
             swingEvent:FireServer()
-            print("Swinging...")
         else
-            warn("SwingEvent not found!")
+            OrionLib:MakeNotification({
+                Name = "Error",
+                Content = "Swing Remote not found!",
+                Time = 5
+            })
             break
         end
-        wait(0.1)
+        wait(0.05)
     end
 end
 
@@ -42,12 +56,15 @@ local function autoSell()
     while autoSellEnabled do
         if sellEvent then
             sellEvent:FireServer()
-            print("Selling...")
         else
-            warn("SellEvent not found!")
+            OrionLib:MakeNotification({
+                Name = "Error",
+                Content = "Sell Remote not found!",
+                Time = 5
+            })
             break
         end
-        wait(5)
+        wait(3)
     end
 end
 
@@ -56,12 +73,32 @@ local function autoBuy()
     while autoBuyEnabled do
         if buyEvent then
             buyEvent:FireServer(itemToBuy)
-            print("Buying " .. itemToBuy)
         else
-            warn("PurchasePetEvent not found!")
+            OrionLib:MakeNotification({
+                Name = "Error",
+                Content = "Buy Remote not found!",
+                Time = 5
+            })
             break
         end
-        wait(2)
+        wait(1)
+    end
+end
+
+-- ฟังก์ชัน Auto Collect
+local function autoCollect()
+    while autoCollectEnabled do
+        if collectEvent then
+            collectEvent:FireServer()
+        else
+            OrionLib:MakeNotification({
+                Name = "Error",
+                Content = "Collect Remote not found!",
+                Time = 5
+            })
+            break
+        end
+        wait(0.5)
     end
 end
 
@@ -69,49 +106,141 @@ end
 player.Idled:Connect(function()
     virtualUser:CaptureController()
     virtualUser:ClickButton2(Vector2.new())
-    print("Anti-AFK triggered")
+    OrionLib:MakeNotification({
+        Name = "Anti-AFK",
+        Content = "Prevented AFK kick!",
+        Time = 3
+    })
 end)
 
 -- UI: ปุ่มควบคุม
-MainSection:NewToggle("Auto Swing", "Toggle Auto Swing", function(state)
-    autoSwingEnabled = state
-    if state then
-        spawn(autoSwing)
-        Library:Notify("Auto Swing Enabled")
-    else
-        Library:Notify("Auto Swing Disabled")
+MainTab:AddToggle({
+    Name = "Auto Swing",
+    Default = false,
+    Callback = function(state)
+        autoSwingEnabled = state
+        if state then
+            spawn(autoSwing)
+            OrionLib:MakeNotification({
+                Name = "Auto Swing",
+                Content = "Auto Swing Enabled",
+                Time = 3
+            })
+        else
+            OrionLib:MakeNotification({
+                Name = "Auto Swing",
+                Content = "Auto Swing Disabled",
+                Time = 3
+            })
+        end
     end
-end)
+})
 
-MainSection:NewToggle("Auto Sell", "Toggle Auto Sell", function(state)
-    autoSellEnabled = state
-    if state then
-        spawn(autoSell)
-        Library:Notify("Auto Sell Enabled")
-    else
-        Library:Notify("Auto Sell Disabled")
+MainTab:AddToggle({
+    Name = "Auto Sell",
+    Default = false,
+    Callback = function(state)
+        autoSellEnabled = state
+        if state then
+            spawn(autoSell)
+            OrionLib:MakeNotification({
+                Name = "Auto Sell",
+                Content = "Auto Sell Enabled",
+                Time = 3
+            })
+        else
+            OrionLib:MakeNotification({
+                Name = "Auto Sell",
+                Content = "Auto Sell Disabled",
+                Time = 3
+            })
+        end
     end
-end)
+})
 
-MainSection:NewToggle("Auto Buy", "Toggle Auto Buy (" .. itemToBuy .. ")", function(state)
-    autoBuyEnabled = state
-    if state then
-        spawn(autoBuy)
-        Library:Notify("Auto Buy Enabled")
-    else
-        Library:Notify("Auto Buy Disabled")
+MainTab:AddToggle({
+    Name = "Auto Buy (" .. itemToBuy .. ")",
+    Default = false,
+    Callback = function(state)
+        autoBuyEnabled = state
+        if state then
+            spawn(autoBuy)
+            OrionLib:MakeNotification({
+                Name = "Auto Buy",
+                Content = "Auto Buy Enabled for " .. itemToBuy,
+                Time = 3
+            })
+        else
+            OrionLib:MakeNotification({
+                Name = "Auto Buy",
+                Content = "Auto Buy Disabled",
+                Time = 3
+            })
+        end
     end
-end)
+})
 
--- UI: ส่วนตั้งค่า
-local SettingsTab = Window:NewTab("Settings")
-local SettingsSection = SettingsTab:NewSection("Customize")
+MainTab:AddToggle({
+    Name = "Auto Collect",
+    Default = false,
+    Callback = function(state)
+        autoCollectEnabled = state
+        if state then
+            spawn(autoCollect)
+            OrionLib:MakeNotification({
+                Name = "Auto Collect",
+                Content = "Auto Collect Enabled",
+                Time = 3
+            })
+        else
+            OrionLib:MakeNotification({
+                Name = "Auto Collect",
+                Content = "Auto Collect Disabled",
+                Time = 3
+            })
+        end
+    end
+})
 
-SettingsSection:NewTextBox("Item to Buy", "Enter item name to buy", function(txt)
-    itemToBuy = txt
-    Library:Notify("Item to buy set to: " .. itemToBuy)
-end)
+-- UI: ตั้งค่าไอเทม
+MainTab:AddTextbox({
+    Name = "Item to Buy",
+    Default = itemToBuy,
+    TextDisappear = true,
+    Callback = function(value)
+        itemToBuy = value
+        OrionLib:MakeNotification({
+            Name = "Settings",
+            Content = "Item to buy set to: " .. itemToBuy,
+            Time = 3
+        })
+    end
+})
 
--- แจ้งว่าเริ่มรันสคริปต์
-Library:Notify("Ninja Legends Auto Script Loaded!", 5)
-print("Ninja Legends Auto Script by YourName")
+-- UI: ปุ่มตรวจสอบ Remote Events
+MainTab:AddButton({
+    Name = "Check Remote Events",
+    Callback = function()
+        local remotes = ""
+        for _, v in pairs(replicatedStorage:GetChildren()) do
+            if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
+                remotes = remotes .. v.Name .. "\n"
+            end
+        end
+        OrionLib:MakeNotification({
+            Name = "Remote Events",
+            Content = remotes ~= "" and remotes or "No Remotes found!",
+            Time = 10
+        })
+    end
+})
+
+-- แจ้งว่าเริ่มรัน
+OrionLib:MakeNotification({
+    Name = "Ninja Legends Auto",
+    Content = "Script Loaded! Use toggles to control.",
+    Image = "rbxassetid://7733964719",
+    Time = 5
+})
+
+OrionLib:Init()
