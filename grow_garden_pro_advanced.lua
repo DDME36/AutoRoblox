@@ -1,7 +1,34 @@
--- 🌱 Grow Garden Pro Script | Advanced Full System
--- Version: 2.0 | Created by AI Assistant
--- Features: Full Auto System, Object Explorer, Anti-AFK, Modern UI
--- Usage: loadstring(game:HttpGet("URL"))()
+-- 🌱 Grow Garden Ultimate Pro - เวอร์ชั่นปรับปรุงใหม่
+-- Version 3.0 | ปรับปรุงประสิทธิภาพ + ฟีเจอร์ใหม่ + UI ที่ดีขึ้น
+-- โดย AI Assistant | สำหรับเกม Grow a Garden
+
+--[[
+🔧 การปรับปรุงหลักในเวอร์ชั่นนี้:
+
+✅ PERFORMANCE (ประสิทธิภาพ):
+- ใช้ Debounce ป้องกันการ Spam
+- ลดการสแกนวัตถุที่ไม่จำเป็น
+- จัดลำดับการทำงานของระบบอัตโนมัติ
+- Cache ข้อมูลเพื่อลด Lag
+
+✅ SMART FEATURES (ฟีเจอร์อัจฉริยะ):
+- Auto-Equip Pet ที่ดีที่สุด
+- Smart Seed Selection (เลือกเมล็ดที่คุ้มค่า)
+- Priority System (ตั้งลำดับความสำคัญ)
+- Resource Management (จัดการทรัพยากร)
+
+✅ IMPROVED UI (UI ที่ดีขึ้น):
+- Listbox แทน Dropdown
+- Speed Slider ปรับความเร็วได้
+- Quantity Input กำหนดจำนวนได้
+- Complete Theme System
+
+✅ STABILITY (ความเสถียร):
+- Error Handling ครบถ้วน
+- Resource Checking ก่อนซื้อ
+- Auto-Recovery เมื่อเกิดข้อผิดพลาด
+- Advanced RemoteEvent Detection
+--]]
 
 -- Services
 local Players = game:GetService("Players")
@@ -9,362 +36,791 @@ local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
+local PathfindingService = game:GetService("PathfindingService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Anti-AFK System
-local antiAFK = true
-Players.LocalPlayer.Idled:Connect(function()
-    if antiAFK then
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton2(Vector2.new())
-        print("Anti-AFK: Prevented idle kick")
-    end
-end)
+-- ============================================================================
+-- CORE VARIABLES & SETTINGS
+-- ============================================================================
 
--- Global Variables
-local scriptEnabled = true
-local autoEgg = false
-local autoShop = false
-local autoSeed = false
-local autoSell = false
-local autoRebirth = false
-local autoUpgrade = false
-local autoCollect = false
-local autoHatch = false
-local teleportEnabled = false
-local speedEnabled = false
-local jumpEnabled = false
-local flyEnabled = false
-local noclipEnabled = false
-local autoFarmEnabled = false
-local espEnabled = false
-
--- Game Objects Storage
-local gameObjects = {
-    eggs = {},
-    shops = {},
-    seeds = {},
-    upgrades = {},
-    pets = {},
-    collectibles = {},
-    teleports = {}
+local UltimateGarden = {
+    -- Version Info
+    version = "3.0",
+    title = "🌱 Grow Garden Ultimate Pro",
+    
+    -- Core Settings
+    enabled = true,
+    debugMode = false,
+    
+    -- Feature Toggles
+    features = {
+        autoEgg = false,
+        autoShop = false,
+        autoSeed = false,
+        autoPlant = false,
+        autoHarvest = false,
+        autoSell = false,
+        autoRebirth = false,
+        autoEquipPet = false,
+        autoClaimRewards = false,
+        smartFarming = false,
+        antiAFK = true
+    },
+    
+    -- Performance Settings
+    performance = {
+        farmSpeed = 1.0, -- 0.1 = เร็วมาก, 2.0 = ช้า
+        scanInterval = 30, -- วินาที
+        maxActions = 5, -- การกระทำสูงสุดต่อรอบ
+        debounceTime = 0.5 -- วินาที
+    },
+    
+    -- Smart Settings
+    smart = {
+        maxSeedPrice = 1000, -- ราคาเมล็ดสูงสุดที่จะซื้อ
+        minCropValue = 100, -- มูลค่าพืชขั้นต่ำที่จะเก็บเกี่ยว
+        priorityNPC = nil, -- NPC ที่ให้ความสำคัญ
+        farmPriority = {"plant", "harvest", "sell", "upgrade"} -- ลำดับการฟาร์ม
+    },
+    
+    -- UI Settings
+    ui = {
+        theme = "dark", -- dark, light, custom
+        windowSize = {800, 600},
+        showNotifications = true,
+        showStats = true
+    },
+    
+    -- Data Storage
+    data = {
+        gameObjects = {
+            eggs = {},
+            shops = {},
+            seeds = {},
+            plants = {},
+            npcs = {},
+            pets = {},
+            rewards = {}
+        },
+        remoteEvents = {},
+        playerStats = {
+            money = 0,
+            eggs = 0,
+            plants = 0,
+            harvests = 0
+        },
+        cache = {}
+    }
 }
 
--- UI Colors
-local colors = {
-    primary = Color3.fromRGB(25, 25, 35),
-    secondary = Color3.fromRGB(35, 35, 45),
-    accent = Color3.fromRGB(0, 162, 255),
-    success = Color3.fromRGB(46, 204, 113),
-    warning = Color3.fromRGB(241, 196, 15),
-    danger = Color3.fromRGB(231, 76, 60),
-    text = Color3.fromRGB(255, 255, 255),
-    textSecondary = Color3.fromRGB(180, 180, 190)
-}
+-- ============================================================================
+-- UTILITY FUNCTIONS
+-- ============================================================================
+
+local Utils = {}
 
 -- Notification System
-local function notify(title, text, icon, duration)
+function Utils.notify(title, text, duration, icon)
+    if not UltimateGarden.ui.showNotifications then return end
+    
     StarterGui:SetCore("SendNotification", {
         Title = (icon or "🌱") .. " " .. title;
         Text = text;
-        Duration = duration or 4;
+        Duration = duration or 3;
     })
 end
 
--- Object Scanner System
-local function scanForObjects()
-    local workspace = game:GetService("Workspace")
+-- Debug Logging
+function Utils.log(message, type)
+    if not UltimateGarden.debugMode then return end
     
-    -- Clear previous data
-    for key, _ in pairs(gameObjects) do
-        gameObjects[key] = {}
+    local prefix = type and "[" .. type:upper() .. "]" or "[INFO]"
+    print(prefix .. " " .. message)
+end
+
+-- Safe Function Call
+function Utils.safeCall(func, ...)
+    local success, result = pcall(func, ...)
+    if not success then
+        Utils.log("Error in function: " .. tostring(result), "error")
+        Utils.notify("Error", "เกิดข้อผิดพลาด: " .. tostring(result), 5, "❌")
+    end
+    return success, result
+end
+
+-- Debounce System
+local debounces = {}
+function Utils.debounce(key, func, time)
+    time = time or UltimateGarden.performance.debounceTime
+    
+    if debounces[key] and tick() - debounces[key] < time then
+        return false
     end
     
-    -- Scan workspace for objects
-    local function scanFolder(folder, category)
-        for _, obj in pairs(folder:GetChildren()) do
-            if obj:IsA("Model") or obj:IsA("Part") or obj:IsA("Folder") then
-                table.insert(gameObjects[category], {
-                    name = obj.Name,
-                    object = obj,
-                    path = obj:GetFullName()
-                })
+    debounces[key] = tick()
+    return Utils.safeCall(func)
+end
+
+-- Resource Checker
+function Utils.hasResources(requiredMoney)
+    local playerGui = LocalPlayer:WaitForChild("PlayerGui", 1)
+    if not playerGui then return false end
+    
+    -- Try to find money display in UI
+    local function findMoneyDisplay(obj)
+        for _, child in pairs(obj:GetDescendants()) do
+            if child:IsA("TextLabel") and child.Text:find("$") then
+                local money = child.Text:match("%d+")
+                if money then
+                    UltimateGarden.data.playerStats.money = tonumber(money) or 0
+                    return tonumber(money) >= (requiredMoney or 0)
+                end
+            end
+        end
+        return true -- Assume we have resources if can't detect
+    end
+    
+    return findMoneyDisplay(playerGui)
+end
+
+-- ============================================================================
+-- ADVANCED OBJECT DETECTION SYSTEM
+-- ============================================================================
+
+local ObjectDetector = {}
+
+-- Object Categories with Smart Detection
+ObjectDetector.categories = {
+    eggs = {"egg", "ไข", "หอย"},
+    shops = {"shop", "store", "upgrade", "ร้าน", "อัพเกรด"},
+    seeds = {"seed", "เมล็ด", "พันธุ"},
+    plants = {"plant", "crop", "ผัก", "พืช", "ต้น"},
+    npcs = {"npc", "villager", "merchant", "คน", "พ่อค้า"},
+    pets = {"pet", "animal", "สัตว์", "เลี้ยง"},
+    rewards = {"reward", "chest", "gift", "รางวัล", "กล่อง", "ของขวัญ"}
+}
+
+-- Smart Object Scanner
+function ObjectDetector:scan()
+    if not Utils.debounce("object_scan", function() end, 5) then return end
+    
+    Utils.log("Starting smart object scan...", "scanner")
+    
+    -- Clear old data
+    for category, _ in pairs(UltimateGarden.data.gameObjects) do
+        UltimateGarden.data.gameObjects[category] = {}
+    end
+    
+    local workspace = game:GetService("Workspace")
+    local scannedCount = 0
+    
+    -- Scan all objects in workspace
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if scannedCount > 1000 then break end -- Limit scan for performance
+        
+        if obj:IsA("Model") or obj:IsA("Part") or obj:IsA("MeshPart") then
+            local objName = obj.Name:lower()
+            local objPosition = self:getObjectPosition(obj)
+            
+            if objPosition then
+                -- Categorize object
+                for category, keywords in pairs(self.categories) do
+                    for _, keyword in pairs(keywords) do
+                        if objName:find(keyword) then
+                            table.insert(UltimateGarden.data.gameObjects[category], {
+                                name = obj.Name,
+                                object = obj,
+                                position = objPosition,
+                                value = self:calculateObjectValue(obj, category),
+                                lastUpdate = tick()
+                            })
+                            scannedCount = scannedCount + 1
+                            break
+                        end
+                    end
+                end
             end
         end
     end
     
-    -- Scan for different categories
-    local categories = {
-        "Eggs", "EggShop", "Egg", "eggs",
-        "Shop", "Shops", "Store", "Upgrade", "upgrades",
-        "Seed", "Seeds", "Plant", "plants",
-        "Pet", "Pets", "Animal", "animals",
-        "Coin", "Coins", "Money", "Cash", "Gold",
-        "Teleport", "Portal", "Spawn", "Zone"
-    }
+    Utils.log("Scan complete. Found " .. scannedCount .. " objects", "scanner")
+    Utils.notify("Object Scanner", "พบวัตถุ " .. scannedCount .. " รายการ", 3, "🔍")
+end
+
+-- Get Object Position Safely
+function ObjectDetector:getObjectPosition(obj)
+    if obj:IsA("Model") then
+        local primaryPart = obj.PrimaryPart or obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildOfClass("Part")
+        return primaryPart and primaryPart.Position or nil
+    elseif obj:IsA("BasePart") then
+        return obj.Position
+    end
+    return nil
+end
+
+-- Calculate Object Value (for smart selection)
+function ObjectDetector:calculateObjectValue(obj, category)
+    local value = 1
     
-    for _, obj in pairs(workspace:GetChildren()) do
-        local objName = obj.Name:lower()
-        
-        -- Auto-categorize based on name
-        if objName:find("egg") then
-            table.insert(gameObjects.eggs, {name = obj.Name, object = obj, path = obj:GetFullName()})
-        elseif objName:find("shop") or objName:find("store") or objName:find("upgrade") then
-            table.insert(gameObjects.shops, {name = obj.Name, object = obj, path = obj:GetFullName()})
-        elseif objName:find("seed") or objName:find("plant") then
-            table.insert(gameObjects.seeds, {name = obj.Name, object = obj, path = obj:GetFullName()})
-        elseif objName:find("pet") or objName:find("animal") then
-            table.insert(gameObjects.pets, {name = obj.Name, object = obj, path = obj:GetFullName()})
-        elseif objName:find("coin") or objName:find("money") or objName:find("cash") or objName:find("gold") then
-            table.insert(gameObjects.collectibles, {name = obj.Name, object = obj, path = obj:GetFullName()})
-        elseif objName:find("teleport") or objName:find("portal") or objName:find("spawn") then
-            table.insert(gameObjects.teleports, {name = obj.Name, object = obj, path = obj:GetFullName()})
+    -- Distance factor (closer = better)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local playerPos = LocalPlayer.Character.HumanoidRootPart.Position
+        local objPos = self:getObjectPosition(obj)
+        if objPos then
+            local distance = (playerPos - objPos).Magnitude
+            value = value / math.max(distance / 100, 1) -- Closer objects have higher value
         end
     end
     
-    print("🔍 Object Scanner: Found " .. #gameObjects.eggs .. " eggs, " .. #gameObjects.shops .. " shops, " .. #gameObjects.seeds .. " seeds")
+    -- Size factor (bigger might be better for some categories)
+    if category == "shops" or category == "npcs" then
+        local size = 1
+        if obj:IsA("Model") then
+            local _, boundingBox = obj:GetBoundingBox()
+            size = boundingBox.Magnitude
+        elseif obj:IsA("BasePart") then
+            size = obj.Size.Magnitude
+        end
+        value = value * math.min(size / 10, 2) -- Bigger shops/NPCs might be more important
+    end
+    
+    return value
 end
 
--- Auto-scan on load
-scanForObjects()
+-- Find Best Object in Category
+function ObjectDetector:findBest(category, filter)
+    local objects = UltimateGarden.data.gameObjects[category] or {}
+    local best = nil
+    local bestValue = 0
+    
+    for _, obj in pairs(objects) do
+        if obj.object and obj.object.Parent then
+            local valid = true
+            
+            -- Apply filter if provided
+            if filter and not filter(obj) then
+                valid = false
+            end
+            
+            if valid and obj.value > bestValue then
+                best = obj
+                bestValue = obj.value
+            end
+        end
+    end
+    
+    return best
+end
 
--- Modern UI Creation
-local function createModernUI()
-    -- Remove existing GUI
-    local existingGui = PlayerGui:FindFirstChild("GrowGardenPro")
-    if existingGui then existingGui:Destroy() end
+-- ============================================================================
+-- ADVANCED REMOTE EVENT SYSTEM
+-- ============================================================================
+
+local RemoteSystem = {}
+
+-- Auto-detect RemoteEvents
+function RemoteSystem:detectRemotes()
+    Utils.log("Detecting RemoteEvents...", "remote")
+    
+    UltimateGarden.data.remoteEvents = {}
+    
+    -- Scan ReplicatedStorage
+    if ReplicatedStorage then
+        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+            if obj:IsA("RemoteEvent") then
+                local remoteName = obj.Name:lower()
+                
+                -- Categorize remotes by name patterns
+                local category = "other"
+                if remoteName:find("buy") or remoteName:find("purchase") or remoteName:find("ซื้อ") then
+                    category = "buy"
+                elseif remoteName:find("sell") or remoteName:find("ขาย") then
+                    category = "sell"
+                elseif remoteName:find("plant") or remoteName:find("ปลูก") then
+                    category = "plant"
+                elseif remoteName:find("harvest") or remoteName:find("เก็บ") then
+                    category = "harvest"
+                elseif remoteName:find("equip") or remoteName:find("สวม") then
+                    category = "equip"
+                end
+                
+                if not UltimateGarden.data.remoteEvents[category] then
+                    UltimateGarden.data.remoteEvents[category] = {}
+                end
+                
+                table.insert(UltimateGarden.data.remoteEvents[category], {
+                    name = obj.Name,
+                    remote = obj,
+                    lastUsed = 0,
+                    success = 0,
+                    failures = 0
+                })
+                
+                Utils.log("Found " .. category .. " remote: " .. obj.Name, "remote")
+            end
+        end
+    end
+end
+
+-- Smart Remote Caller
+function RemoteSystem:call(category, action, ...)
+    local remotes = UltimateGarden.data.remoteEvents[category]
+    if not remotes or #remotes == 0 then return false end
+    
+    -- Try remotes in order of success rate
+    table.sort(remotes, function(a, b)
+        local aRate = a.success / math.max(a.success + a.failures, 1)
+        local bRate = b.success / math.max(b.success + b.failures, 1)
+        return aRate > bRate
+    end)
+    
+    for _, remoteData in pairs(remotes) do
+        if remoteData.remote and remoteData.remote.Parent then
+            local success = Utils.safeCall(function()
+                remoteData.remote:FireServer(...)
+                remoteData.lastUsed = tick()
+                remoteData.success = remoteData.success + 1
+                return true
+            end)
+            
+            if success then
+                Utils.log("Called " .. remoteData.name .. " successfully", "remote")
+                return true
+            else
+                remoteData.failures = remoteData.failures + 1
+            end
+        end
+    end
+    
+    return false
+end
+
+-- ============================================================================
+-- SMART FARMING SYSTEM
+-- ============================================================================
+
+local SmartFarm = {}
+
+-- Farming Queue System
+SmartFarm.queue = {}
+SmartFarm.currentAction = nil
+
+-- Add Action to Queue
+function SmartFarm:addAction(action, priority, data)
+    table.insert(self.queue, {
+        action = action,
+        priority = priority or 1,
+        data = data or {},
+        timestamp = tick()
+    })
+    
+    -- Sort by priority
+    table.sort(self.queue, function(a, b) return a.priority > b.priority end)
+end
+
+-- Process Queue
+function SmartFarm:processQueue()
+    if #self.queue == 0 or self.currentAction then return end
+    
+    local nextAction = table.remove(self.queue, 1)
+    if not nextAction then return end
+    
+    self.currentAction = nextAction
+    
+    Utils.log("Processing action: " .. nextAction.action, "farm")
+    
+    -- Execute action
+    local success = false
+    if nextAction.action == "plant" then
+        success = self:executePlant(nextAction.data)
+    elseif nextAction.action == "harvest" then
+        success = self:executeHarvest(nextAction.data)
+    elseif nextAction.action == "sell" then
+        success = self:executeSell(nextAction.data)
+    elseif nextAction.action == "upgrade" then
+        success = self:executeUpgrade(nextAction.data)
+    end
+    
+    -- Clear current action
+    self.currentAction = nil
+    
+    if success then
+        Utils.notify("Smart Farm", "ทำ " .. nextAction.action .. " สำเร็จ", 2, "🤖")
+    end
+end
+
+-- Execute Plant Action
+function SmartFarm:executePlant(data)
+    if not UltimateGarden.features.autoPlant then return false end
+    
+    local bestSeed = ObjectDetector:findBest("seeds", function(obj)
+        return obj.value <= UltimateGarden.smart.maxSeedPrice
+    end)
+    
+    if bestSeed and Utils.hasResources(UltimateGarden.smart.maxSeedPrice) then
+        return self:clickObject(bestSeed.object)
+    end
+    
+    return false
+end
+
+-- Execute Harvest Action
+function SmartFarm:executeHarvest(data)
+    if not UltimateGarden.features.autoHarvest then return false end
+    
+    local bestPlant = ObjectDetector:findBest("plants", function(obj)
+        -- Check if plant is ready (this might need game-specific logic)
+        return obj.value >= UltimateGarden.smart.minCropValue
+    end)
+    
+    if bestPlant then
+        return self:clickObject(bestPlant.object)
+    end
+    
+    return false
+end
+
+-- Execute Sell Action
+function SmartFarm:executeSell(data)
+    if not UltimateGarden.features.autoSell then return false end
+    
+    -- Try to use RemoteEvent first
+    if RemoteSystem:call("sell", "sell_all") then
+        return true
+    end
+    
+    -- Fallback to clicking sell NPCs
+    local sellNPC = ObjectDetector:findBest("npcs", function(obj)
+        return obj.name:lower():find("sell") or obj.name:lower():find("ขาย")
+    end)
+    
+    if sellNPC then
+        return self:clickObject(sellNPC.object)
+    end
+    
+    return false
+end
+
+-- Execute Upgrade Action
+function SmartFarm:executeUpgrade(data)
+    if not UltimateGarden.features.autoShop then return false end
+    
+    local bestShop = ObjectDetector:findBest("shops")
+    
+    if bestShop and Utils.hasResources(1000) then -- Minimum money for upgrade
+        return self:clickObject(bestShop.object)
+    end
+    
+    return false
+end
+
+-- Smart Click with Multiple Methods
+function SmartFarm:clickObject(obj)
+    if not obj or not obj.Parent then return false end
+    
+    -- Method 1: ClickDetector
+    local clickDetector = obj:FindFirstChildOfClass("ClickDetector")
+    if clickDetector then
+        Utils.safeCall(function()
+            fireclickdetector(clickDetector)
+        end)
+        return true
+    end
+    
+    -- Method 2: ProximityPrompt
+    local proximityPrompt = obj:FindFirstChildOfClass("ProximityPrompt")
+    if proximityPrompt then
+        Utils.safeCall(function()
+            fireproximityprompt(proximityPrompt)
+        end)
+        return true
+    end
+    
+    -- Method 3: RemoteEvent
+    if RemoteSystem:call("buy", "click", obj.Name) then
+        return true
+    end
+    
+    return false
+end
+
+-- Generate Smart Actions
+function SmartFarm:generateActions()
+    if not UltimateGarden.features.smartFarming then return end
+    
+    -- Clear old actions
+    self.queue = {}
+    
+    -- Add actions based on priority
+    local priorities = UltimateGarden.smart.farmPriority
+    
+    for i, action in pairs(priorities) do
+        local priority = #priorities - i + 1 -- Higher index = lower priority
+        
+        if action == "plant" and UltimateGarden.features.autoPlant then
+            self:addAction("plant", priority)
+        elseif action == "harvest" and UltimateGarden.features.autoHarvest then
+            self:addAction("harvest", priority)
+        elseif action == "sell" and UltimateGarden.features.autoSell then
+            self:addAction("sell", priority)
+        elseif action == "upgrade" and UltimateGarden.features.autoShop then
+            self:addAction("upgrade", priority)
+        end
+    end
+end
+
+-- ============================================================================
+-- PET MANAGEMENT SYSTEM
+-- ============================================================================
+
+local PetManager = {}
+
+-- Auto-Equip Best Pet
+function PetManager:equipBestPet()
+    if not UltimateGarden.features.autoEquipPet then return end
+    
+    local bestPet = ObjectDetector:findBest("pets", function(obj)
+        -- This would need game-specific logic to determine pet stats
+        return true
+    end)
+    
+    if bestPet then
+        -- Try to equip via RemoteEvent
+        if RemoteSystem:call("equip", "equip_pet", bestPet.name) then
+            Utils.notify("Pet Manager", "สวมสัตว์เลี้ยง: " .. bestPet.name, 3, "🐾")
+            return true
+        end
+        
+        -- Fallback to clicking
+        return SmartFarm:clickObject(bestPet.object)
+    end
+    
+    return false
+end
+
+-- ============================================================================
+-- REWARDS SYSTEM
+-- ============================================================================
+
+local RewardManager = {}
+
+-- Auto-Claim Rewards
+function RewardManager:claimRewards()
+    if not UltimateGarden.features.autoClaimRewards then return end
+    
+    local rewards = UltimateGarden.data.gameObjects.rewards or {}
+    
+    for _, reward in pairs(rewards) do
+        if reward.object and reward.object.Parent then
+            SmartFarm:clickObject(reward.object)
+            wait(0.5) -- Small delay between claims
+        end
+    end
+end
+
+-- ============================================================================
+-- MODERN UI SYSTEM
+-- ============================================================================
+
+local ModernUI = {}
+
+-- Color Themes
+ModernUI.themes = {
+    dark = {
+        primary = Color3.fromRGB(30, 30, 40),
+        secondary = Color3.fromRGB(40, 40, 50),
+        accent = Color3.fromRGB(0, 162, 255),
+        success = Color3.fromRGB(46, 204, 113),
+        warning = Color3.fromRGB(241, 196, 15),
+        danger = Color3.fromRGB(231, 76, 60),
+        text = Color3.fromRGB(255, 255, 255),
+        textSecondary = Color3.fromRGB(180, 180, 190)
+    },
+    light = {
+        primary = Color3.fromRGB(245, 245, 250),
+        secondary = Color3.fromRGB(235, 235, 240),
+        accent = Color3.fromRGB(0, 122, 255),
+        success = Color3.fromRGB(52, 199, 89),
+        warning = Color3.fromRGB(255, 149, 0),
+        danger = Color3.fromRGB(255, 69, 58),
+        text = Color3.fromRGB(0, 0, 0),
+        textSecondary = Color3.fromRGB(60, 60, 67)
+    }
+}
+
+-- Get Current Theme
+function ModernUI:getTheme()
+    return self.themes[UltimateGarden.ui.theme] or self.themes.dark
+end
+
+-- Create Main UI
+function ModernUI:create()
+    -- Remove existing UI
+    local existing = PlayerGui:FindFirstChild("UltimateGardenUI")
+    if existing then existing:Destroy() end
+    
+    local theme = self:getTheme()
     
     -- Main ScreenGui
     local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "GrowGardenPro"
+    screenGui.Name = "UltimateGardenUI"
     screenGui.Parent = PlayerGui
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
-    -- Desktop Icon (Minimized State)
-    local desktopIcon = Instance.new("ImageButton")
-    desktopIcon.Name = "DesktopIcon"
-    desktopIcon.Size = UDim2.new(0, 60, 0, 60)
-    desktopIcon.Position = UDim2.new(0, 20, 0, 20)
-    desktopIcon.BackgroundColor3 = colors.primary
-    desktopIcon.BorderSizePixel = 0
-    desktopIcon.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-    desktopIcon.Parent = screenGui
-    desktopIcon.Visible = false
-    
-    local iconCorner = Instance.new("UICorner")
-    iconCorner.CornerRadius = UDim.new(0, 15)
-    iconCorner.Parent = desktopIcon
-    
-    local iconLabel = Instance.new("TextLabel")
-    iconLabel.Size = UDim2.new(1, 0, 1, 0)
-    iconLabel.BackgroundTransparency = 1
-    iconLabel.Text = "🌱"
-    iconLabel.TextColor3 = colors.text
-    iconLabel.TextScaled = true
-    iconLabel.Font = Enum.Font.GothamBold
-    iconLabel.Parent = desktopIcon
-    
     -- Main Frame
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 800, 0, 600)
-    mainFrame.Position = UDim2.new(0.5, -400, 0.5, -300)
-    mainFrame.BackgroundColor3 = colors.primary
+    mainFrame.Size = UDim2.new(0, UltimateGarden.ui.windowSize[1], 0, UltimateGarden.ui.windowSize[2])
+    mainFrame.Position = UDim2.new(0.5, -UltimateGarden.ui.windowSize[1]/2, 0.5, -UltimateGarden.ui.windowSize[2]/2)
+    mainFrame.BackgroundColor3 = theme.primary
     mainFrame.BorderSizePixel = 0
     mainFrame.Parent = screenGui
     
     local mainCorner = Instance.new("UICorner")
-    mainCorner.CornerRadius = UDim.new(0, 20)
+    mainCorner.CornerRadius = UDim.new(0, 16)
     mainCorner.Parent = mainFrame
     
-    -- Drop Shadow Effect
-    local shadow = Instance.new("ImageLabel")
-    shadow.Name = "Shadow"
-    shadow.Size = UDim2.new(1, 20, 1, 20)
-    shadow.Position = UDim2.new(0, -10, 0, -10)
-    shadow.BackgroundTransparency = 1
-    shadow.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-    shadow.ImageColor3 = Color3.new(0, 0, 0)
-    shadow.ImageTransparency = 0.7
-    shadow.ZIndex = mainFrame.ZIndex - 1
-    shadow.Parent = mainFrame
-    
     -- Title Bar
+    local titleBar = self:createTitleBar(mainFrame, theme)
+    
+    -- Content Area with Tabs
+    local contentArea = self:createContentArea(mainFrame, theme)
+    
+    -- Create Tabs
+    self:createTabs(contentArea, theme)
+    
+    -- Make draggable
+    self:makeDraggable(titleBar, mainFrame)
+    
+    Utils.notify("Ultimate Garden", "UI โหลดเสร็จแล้ว! เวอร์ชั่น " .. UltimateGarden.version, 5, "🎨")
+    
+    return screenGui
+end
+
+-- Create Title Bar
+function ModernUI:createTitleBar(parent, theme)
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, 0, 0, 50)
-    titleBar.BackgroundColor3 = colors.secondary
+    titleBar.BackgroundColor3 = theme.secondary
     titleBar.BorderSizePixel = 0
-    titleBar.Parent = mainFrame
+    titleBar.Parent = parent
     
     local titleCorner = Instance.new("UICorner")
-    titleCorner.CornerRadius = UDim.new(0, 20)
+    titleCorner.CornerRadius = UDim.new(0, 16)
     titleCorner.Parent = titleBar
     
     -- Title Text
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -120, 1, 0)
-    titleLabel.Position = UDim2.new(0, 15, 0, 0)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "🌱 Grow Garden Pro | Advanced System"
-    titleLabel.TextColor3 = colors.text
-    titleLabel.TextScaled = true
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.Parent = titleBar
-    
-    -- Status Indicator
-    local statusDot = Instance.new("Frame")
-    statusDot.Size = UDim2.new(0, 10, 0, 10)
-    statusDot.Position = UDim2.new(0, 200, 0.5, -5)
-    statusDot.BackgroundColor3 = colors.success
-    statusDot.BorderSizePixel = 0
-    statusDot.Parent = titleBar
-    
-    local statusCorner = Instance.new("UICorner")
-    statusCorner.CornerRadius = UDim.new(0, 5)
-    statusCorner.Parent = statusDot
+    local titleText = Instance.new("TextLabel")
+    titleText.Size = UDim2.new(1, -100, 1, 0)
+    titleText.Position = UDim2.new(0, 15, 0, 0)
+    titleText.BackgroundTransparency = 1
+    titleText.Text = UltimateGarden.title .. " v" .. UltimateGarden.version
+    titleText.TextColor3 = theme.text
+    titleText.TextScaled = true
+    titleText.Font = Enum.Font.GothamBold
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+    titleText.Parent = titleBar
     
     -- Control Buttons
-    local function createControlButton(text, position, color, callback)
-        local button = Instance.new("TextButton")
-        button.Size = UDim2.new(0, 30, 0, 30)
-        button.Position = position
-        button.BackgroundColor3 = color
-        button.BorderSizePixel = 0
-        button.Text = text
-        button.TextColor3 = colors.text
-        button.TextScaled = true
-        button.Font = Enum.Font.GothamBold
-        button.Parent = titleBar
-        
-        local buttonCorner = Instance.new("UICorner")
-        buttonCorner.CornerRadius = UDim.new(0, 8)
-        buttonCorner.Parent = button
-        
-        button.MouseButton1Click:Connect(callback)
-        return button
-    end
-    
-    -- Minimize Button
-    local minimizeBtn = createControlButton("−", UDim2.new(1, -100, 0.5, -15), colors.warning, function()
-        mainFrame.Visible = false
-        desktopIcon.Visible = true
-        
-        -- Animate icon appearance
-        desktopIcon.Size = UDim2.new(0, 0, 0, 0)
-        desktopIcon.Visible = true
-        TweenService:Create(desktopIcon, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-            Size = UDim2.new(0, 60, 0, 60)
-        }):Play()
+    local closeBtn = self:createButton("×", UDim2.new(0, 30, 0, 30), UDim2.new(1, -40, 0.5, -15), theme.danger, titleBar)
+    closeBtn.MouseButton1Click:Connect(function()
+        UltimateGarden.enabled = false
+        parent.Parent:Destroy()
+        Utils.notify("Ultimate Garden", "สคริปถูกปิดแล้ว", 3, "❌")
     end)
     
-    -- Maximize Button  
-    local maximizeBtn = createControlButton("□", UDim2.new(1, -65, 0.5, -15), colors.accent, function()
-        local targetSize = mainFrame.Size == UDim2.new(0, 800, 0, 600) and UDim2.new(0, 1000, 0, 700) or UDim2.new(0, 800, 0, 600)
-        local targetPos = mainFrame.Size == UDim2.new(0, 800, 0, 600) and UDim2.new(0.5, -500, 0.5, -350) or UDim2.new(0.5, -400, 0.5, -300)
+    local minimizeBtn = self:createButton("−", UDim2.new(0, 30, 0, 30), UDim2.new(1, -75, 0.5, -15), theme.warning, titleBar)
+    minimizeBtn.MouseButton1Click:Connect(function()
+        local isMinimized = parent.Size.Y.Offset <= 60
+        local targetSize = isMinimized and 
+            UDim2.new(0, UltimateGarden.ui.windowSize[1], 0, UltimateGarden.ui.windowSize[2]) or 
+            UDim2.new(0, UltimateGarden.ui.windowSize[1], 0, 50)
         
-        TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-            Size = targetSize,
-            Position = targetPos
-        }):Play()
+        TweenService:Create(parent, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = targetSize}):Play()
     end)
     
-    -- Close Button
-    local closeBtn = createControlButton("×", UDim2.new(1, -30, 0.5, -15), colors.danger, function()
-        TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-            Size = UDim2.new(0, 0, 0, 0),
-            Position = UDim2.new(0.5, 0, 0.5, 0)
-        }):Play()
-        
-        wait(0.3)
-        screenGui:Destroy()
-        scriptEnabled = false
-        notify("Grow Garden Pro", "สคริปถูกปิดแล้ว", "❌")
-    end)
+    return titleBar
+end
+
+-- Create Content Area
+function ModernUI:createContentArea(parent, theme)
+    local contentArea = Instance.new("Frame")
+    contentArea.Name = "ContentArea"
+    contentArea.Size = UDim2.new(1, -20, 1, -70)
+    contentArea.Position = UDim2.new(0, 10, 0, 60)
+    contentArea.BackgroundTransparency = 1
+    contentArea.Parent = parent
     
-    -- Desktop Icon Click
-    desktopIcon.MouseButton1Click:Connect(function()
-        desktopIcon.Visible = false
-        mainFrame.Visible = true
-        
-        -- Animate main frame appearance
-        mainFrame.Size = UDim2.new(0, 0, 0, 0)
-        mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-        TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-            Size = UDim2.new(0, 800, 0, 600),
-            Position = UDim2.new(0.5, -400, 0.5, -300)
-        }):Play()
-    end)
-    
-    -- Tab System
+    return contentArea
+end
+
+-- Create Tabs System
+function ModernUI:createTabs(parent, theme)
+    -- Tab Container
     local tabContainer = Instance.new("Frame")
     tabContainer.Name = "TabContainer"
     tabContainer.Size = UDim2.new(1, 0, 0, 40)
-    tabContainer.Position = UDim2.new(0, 0, 0, 50)
-    tabContainer.BackgroundColor3 = colors.secondary
-    tabContainer.BorderSizePixel = 0
-    tabContainer.Parent = mainFrame
+    tabContainer.BackgroundTransparency = 1
+    tabContainer.Parent = parent
     
     local tabLayout = Instance.new("UIListLayout")
     tabLayout.FillDirection = Enum.FillDirection.Horizontal
     tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabLayout.Padding = UDim.new(0, 5)
     tabLayout.Parent = tabContainer
     
-    -- Content Area
-    local contentFrame = Instance.new("Frame")
-    contentFrame.Name = "ContentFrame"
-    contentFrame.Size = UDim2.new(1, -20, 1, -110)
-    contentFrame.Position = UDim2.new(0, 10, 0, 100)
-    contentFrame.BackgroundTransparency = 1
-    contentFrame.Parent = mainFrame
+    -- Content Container
+    local contentContainer = Instance.new("Frame")
+    contentContainer.Name = "ContentContainer"
+    contentContainer.Size = UDim2.new(1, 0, 1, -50)
+    contentContainer.Position = UDim2.new(0, 0, 0, 50)
+    contentContainer.BackgroundTransparency = 1
+    contentContainer.Parent = parent
     
-    -- Tab Creation Function
+    -- Create Individual Tabs
+    local tabs = {
+        {name = "🚀 Auto Farm", content = function(p) return self:createAutoFarmTab(p, theme) end},
+        {name = "🔧 Smart Config", content = function(p) return self:createSmartConfigTab(p, theme) end},
+        {name = "🎯 Objects", content = function(p) return self:createObjectsTab(p, theme) end},
+        {name = "📊 Stats", content = function(p) return self:createStatsTab(p, theme) end},
+        {name = "⚙️ Settings", content = function(p) return self:createSettingsTab(p, theme) end}
+    }
+    
     local activeTab = nil
-    local function createTab(name, icon, content)
-        local tab = Instance.new("TextButton")
-        tab.Size = UDim2.new(0, 150, 1, 0)
-        tab.BackgroundColor3 = colors.primary
-        tab.BorderSizePixel = 0
-        tab.Text = icon .. " " .. name
-        tab.TextColor3 = colors.textSecondary
-        tab.TextScaled = true
-        tab.Font = Enum.Font.Gotham
-        tab.Parent = tabContainer
-        
-        local tabCorner = Instance.new("UICorner")
-        tabCorner.CornerRadius = UDim.new(0, 8)
-        tabCorner.Parent = tab
+    
+    for i, tab in pairs(tabs) do
+        local tabButton = self:createButton(tab.name, UDim2.new(0, 150, 1, 0), UDim2.new(0, 0, 0, 0), theme.secondary, tabContainer)
+        tabButton.TextScaled = true
+        tabButton.Font = Enum.Font.Gotham
+        tabButton.LayoutOrder = i
         
         -- Tab Content
         local tabContent = Instance.new("ScrollingFrame")
-        tabContent.Name = name .. "Content"
+        tabContent.Name = tab.name .. "Content"
         tabContent.Size = UDim2.new(1, 0, 1, 0)
-        tabContent.BackgroundTransparency = 1
-        tabContent.ScrollBarThickness = 6
+        tabContent.BackgroundColor3 = theme.secondary
+        tabContent.BorderSizePixel = 0
+        tabContent.ScrollBarThickness = 8
         tabContent.CanvasSize = UDim2.new(0, 0, 0, 0)
-        tabContent.Visible = false
-        tabContent.Parent = contentFrame
+        tabContent.Visible = i == 1 -- Show first tab by default
+        tabContent.Parent = contentContainer
         
-        local contentLayout = Instance.new("UIListLayout")
-        contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        contentLayout.Padding = UDim.new(0, 10)
-        contentLayout.Parent = tabContent
+        local contentCorner = Instance.new("UICorner")
+        contentCorner.CornerRadius = UDim.new(0, 12)
+        contentCorner.Parent = tabContent
         
-        -- Auto-resize canvas
-        contentLayout.Changed:Connect(function()
-            tabContent.CanvasSize = UDim2.new(0, 0, 0, contentLayout.AbsoluteContentSize.Y + 20)
-        end)
+        -- Add content to tab
+        tab.content(tabContent)
         
-        -- Tab Click Handler
-        tab.MouseButton1Click:Connect(function()
+        -- Tab click handler
+        tabButton.MouseButton1Click:Connect(function()
             -- Hide all tabs
-            for _, child in pairs(contentFrame:GetChildren()) do
+            for _, child in pairs(contentContainer:GetChildren()) do
                 if child.Name:find("Content") then
                     child.Visible = false
                 end
@@ -373,675 +829,987 @@ local function createModernUI()
             -- Show current tab
             tabContent.Visible = true
             
-            -- Update tab appearance
+            -- Update button appearance
             if activeTab then
-                activeTab.BackgroundColor3 = colors.primary
-                activeTab.TextColor3 = colors.textSecondary
+                activeTab.BackgroundColor3 = theme.secondary
             end
-            
-            tab.BackgroundColor3 = colors.accent
-            tab.TextColor3 = colors.text
-            activeTab = tab
+            tabButton.BackgroundColor3 = theme.accent
+            activeTab = tabButton
         end)
         
-        -- Add content to tab
-        if content then content(tabContent) end
-        
-        return tab, tabContent
-    end
-    
-    -- Create Tabs
-    local function createMainTab(parent)
-        local function createSection(title, items)
-            local section = Instance.new("Frame")
-            section.Size = UDim2.new(1, 0, 0, 200)
-            section.BackgroundColor3 = colors.secondary
-            section.BorderSizePixel = 0
-            section.Parent = parent
-            
-            local sectionCorner = Instance.new("UICorner")
-            sectionCorner.CornerRadius = UDim.new(0, 12)
-            sectionCorner.Parent = section
-            
-            local sectionTitle = Instance.new("TextLabel")
-            sectionTitle.Size = UDim2.new(1, 0, 0, 40)
-            sectionTitle.BackgroundTransparency = 1
-            sectionTitle.Text = title
-            sectionTitle.TextColor3 = colors.text
-            sectionTitle.TextScaled = true
-            sectionTitle.Font = Enum.Font.GothamBold
-            sectionTitle.TextXAlignment = Enum.TextXAlignment.Left
-            sectionTitle.Parent = section
-            
-            local sectionContent = Instance.new("Frame")
-            sectionContent.Size = UDim2.new(1, -20, 1, -50)
-            sectionContent.Position = UDim2.new(0, 10, 0, 45)
-            sectionContent.BackgroundTransparency = 1
-            sectionContent.Parent = section
-            
-            local sectionLayout = Instance.new("UIListLayout")
-            sectionLayout.FillDirection = Enum.FillDirection.Horizontal
-            sectionLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            sectionLayout.Padding = UDim.new(0, 10)
-            sectionLayout.Parent = sectionContent
-            
-            -- Add items
-            for _, item in pairs(items) do
-                local button = Instance.new("TextButton")
-                button.Size = UDim2.new(0, 180, 0, 50)
-                button.BackgroundColor3 = item.enabled and colors.success or colors.primary
-                button.BorderSizePixel = 0
-                button.Text = item.text
-                button.TextColor3 = colors.text
-                button.TextScaled = true
-                button.Font = Enum.Font.Gotham
-                button.Parent = sectionContent
-                
-                local buttonCorner = Instance.new("UICorner")
-                buttonCorner.CornerRadius = UDim.new(0, 8)
-                buttonCorner.Parent = button
-                
-                button.MouseButton1Click:Connect(function()
-                    if item.callback then item.callback() end
-                    button.BackgroundColor3 = item.enabled and colors.success or colors.primary
-                end)
-            end
-            
-            return section
+        -- Set first tab as active
+        if i == 1 then
+            tabButton.BackgroundColor3 = theme.accent
+            activeTab = tabButton
         end
-        
-        -- Auto Farm Section
-        createSection("🚀 ระบบออโต้หลัก", {
-            {text = "🥚 ซื้อไข่อัตโนมัติ", enabled = autoEgg, callback = function()
-                autoEgg = not autoEgg
-                notify("ระบบไข่", autoEgg and "เปิดใช้งาน" or "ปิดใช้งาน", "🥚")
-            end},
-            {text = "🏪 ซื้อร้านค้าอัตโนมัติ", enabled = autoShop, callback = function()
-                autoShop = not autoShop
-                notify("ระบบร้านค้า", autoShop and "เปิดใช้งาน" or "ปิดใช้งาน", "🏪")
-            end},
-            {text = "🌱 ซื้อเมล็ดพันธุ์อัตโนมัติ", enabled = autoSeed, callback = function()
-                autoSeed = not autoSeed
-                notify("ระบบเมล็ดพันธุ์", autoSeed and "เปิดใช้งาน" or "ปิดใช้งาน", "🌱")
-            end},
-            {text = "💰 ขายสินค้าอัตโนมัติ", enabled = autoSell, callback = function()
-                autoSell = not autoSell
-                notify("ระบบขาย", autoSell and "เปิดใช้งาน" or "ปิดใช้งาน", "💰")
-            end}
-        })
-        
-        -- Advanced Features
-        createSection("⚡ ฟีเจอร์ขั้นสูง", {
-            {text = "🔄 เกิดใหม่อัตโนมัติ", enabled = autoRebirth, callback = function()
-                autoRebirth = not autoRebirth
-                notify("ระบบเกิดใหม่", autoRebirth and "เปิดใช้งาน" or "ปิดใช้งาน", "🔄")
-            end},
-            {text = "📈 อัพเกรดอัตโนมัติ", enabled = autoUpgrade, callback = function()
-                autoUpgrade = not autoUpgrade
-                notify("ระบบอัพเกรด", autoUpgrade and "เปิดใช้งาน" or "ปิดใช้งาน", "📈")
-            end},
-            {text = "🪙 เก็บเหรียญอัตโนมัติ", enabled = autoCollect, callback = function()
-                autoCollect = not autoCollect
-                notify("ระบบเก็บเหรียญ", autoCollect and "เปิดใช้งาน" or "ปิดใช้งาน", "🪙")
-            end},
-            {text = "🥚 ฟักไข่อัตโนมัติ", enabled = autoHatch, callback = function()
-                autoHatch = not autoHatch
-                notify("ระบบฟักไข่", autoHatch and "เปิดใช้งาน" or "ปิดใช้งาน", "🥚")
-            end}
-        })
-        
-        -- Player Enhancement
-        createSection("🏃 ปรับปรุงผู้เล่น", {
-            {text = "💨 ความเร็วเพิ่มขึ้น", enabled = speedEnabled, callback = function()
-                speedEnabled = not speedEnabled
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                    LocalPlayer.Character.Humanoid.WalkSpeed = speedEnabled and 50 or 16
-                end
-                notify("ความเร็ว", speedEnabled and "เปิดใช้งาน" or "ปิดใช้งาน", "💨")
-            end},
-            {text = "🦘 กระโดดสูงขึ้น", enabled = jumpEnabled, callback = function()
-                jumpEnabled = not jumpEnabled
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                    LocalPlayer.Character.Humanoid.JumpPower = jumpEnabled and 100 or 50
-                end
-                notify("กระโดด", jumpEnabled and "เปิดใช้งาน" or "ปิดใช้งาน", "🦘")
-            end},
-            {text = "✈️ บินได้", enabled = flyEnabled, callback = function()
-                flyEnabled = not flyEnabled
-                notify("การบิน", flyEnabled and "เปิดใช้งาน (WASD)" or "ปิดใช้งาน", "✈️")
-            end},
-            {text = "👻 ผ่านกำแพงได้", enabled = noclipEnabled, callback = function()
-                noclipEnabled = not noclipEnabled
-                notify("ผ่านกำแพง", noclipEnabled and "เปิดใช้งาน" or "ปิดใช้งาน", "👻")
-            end}
-        })
+    end
+end
+
+-- Create Auto Farm Tab
+function ModernUI:createAutoFarmTab(parent, theme)
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 10)
+    layout.Parent = parent
+    
+    -- Auto-resize canvas
+    layout.Changed:Connect(function()
+        parent.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
+    end)
+    
+    -- Farm Controls Section
+    local farmSection = self:createSection("🤖 การฟาร์มอัตโนมัติ", parent, theme)
+    
+    -- Toggle Buttons
+    local toggles = {
+        {name = "Auto Plant", key = "autoPlant", desc = "ปลูกเมล็ดพันธุ์อัตโนมัติ"},
+        {name = "Auto Harvest", key = "autoHarvest", desc = "เก็บเกี่ยวผลผลิตอัตโนมัติ"},
+        {name = "Auto Sell", key = "autoSell", desc = "ขายผลผลิตอัตโนมัติ"},
+        {name = "Smart Farming", key = "smartFarming", desc = "ฟาร์มแบบอัจฉริยะ (แนะนำ)"}
+    }
+    
+    for _, toggle in pairs(toggles) do
+        local toggleFrame = self:createToggle(toggle.name, toggle.desc, UltimateGarden.features[toggle.key], farmSection, theme)
+        toggleFrame.Button.MouseButton1Click:Connect(function()
+            UltimateGarden.features[toggle.key] = not UltimateGarden.features[toggle.key]
+            self:updateToggle(toggleFrame, UltimateGarden.features[toggle.key], theme)
+            Utils.notify("Auto Farm", toggle.name .. (UltimateGarden.features[toggle.key] and " เปิด" or " ปิด"), 2, "🤖")
+        end)
     end
     
-    -- Object Explorer Tab
-    local function createExplorerTab(parent)
-        local searchBox = Instance.new("TextBox")
-        searchBox.Size = UDim2.new(1, 0, 0, 40)
-        searchBox.BackgroundColor3 = colors.secondary
-        searchBox.BorderSizePixel = 0
-        searchBox.Text = "🔍 ค้นหาวัตถุ..."
-        searchBox.TextColor3 = colors.text
-        searchBox.TextScaled = true
-        searchBox.Font = Enum.Font.Gotham
-        searchBox.Parent = parent
+    -- Shop Controls Section
+    local shopSection = self:createSection("🏪 ร้านค้าและอัพเกรด", parent, theme)
+    
+    local shopToggles = {
+        {name = "Auto Egg", key = "autoEgg", desc = "ซื้อไข่อัตโนมัติ"},
+        {name = "Auto Shop", key = "autoShop", desc = "อัพเกรดร้านค้าอัตโนมัติ"},
+        {name = "Auto Seed", key = "autoSeed", desc = "ซื้อเมล็ดพันธุ์อัตโนมัติ"},
+        {name = "Auto Rebirth", key = "autoRebirth", desc = "เกิดใหม่อัตโนมัติ"}
+    }
+    
+    for _, toggle in pairs(shopToggles) do
+        local toggleFrame = self:createToggle(toggle.name, toggle.desc, UltimateGarden.features[toggle.key], shopSection, theme)
+        toggleFrame.Button.MouseButton1Click:Connect(function()
+            UltimateGarden.features[toggle.key] = not UltimateGarden.features[toggle.key]
+            self:updateToggle(toggleFrame, UltimateGarden.features[toggle.key], theme)
+            Utils.notify("Auto Shop", toggle.name .. (UltimateGarden.features[toggle.key] and " เปิด" or " ปิด"), 2, "🏪")
+        end)
+    end
+    
+    -- Pet & Rewards Section
+    local extraSection = self:createSection("🐾 สัตว์เลี้ยงและรางวัล", parent, theme)
+    
+    local extraToggles = {
+        {name = "Auto Equip Pet", key = "autoEquipPet", desc = "สวมสัตว์เลี้ยงที่ดีที่สุดอัตโนมัติ"},
+        {name = "Auto Claim Rewards", key = "autoClaimRewards", desc = "เก็บรางวัลอัตโนมัติ"}
+    }
+    
+    for _, toggle in pairs(extraToggles) do
+        local toggleFrame = self:createToggle(toggle.name, toggle.desc, UltimateGarden.features[toggle.key], extraSection, theme)
+        toggleFrame.Button.MouseButton1Click:Connect(function()
+            UltimateGarden.features[toggle.key] = not UltimateGarden.features[toggle.key]
+            self:updateToggle(toggleFrame, UltimateGarden.features[toggle.key], theme)
+            Utils.notify("Auto Extra", toggle.name .. (UltimateGarden.features[toggle.key] and " เปิด" or " ปิด"), 2, "🐾")
+        end)
+    end
+end
+
+-- Create Smart Config Tab
+function ModernUI:createSmartConfigTab(parent, theme)
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 10)
+    layout.Parent = parent
+    
+    layout.Changed:Connect(function()
+        parent.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
+    end)
+    
+    -- Speed Control
+    local speedSection = self:createSection("⚡ ควบคุมความเร็ว", parent, theme)
+    local speedSlider = self:createSlider("Farm Speed", "ความเร็วการฟาร์ม", 0.1, 3.0, UltimateGarden.performance.farmSpeed, speedSection, theme)
+    speedSlider.Changed:Connect(function(value)
+        UltimateGarden.performance.farmSpeed = value
+        Utils.notify("Speed", "ตั้งความเร็วเป็น " .. string.format("%.1f", value), 2, "⚡")
+    end)
+    
+    -- Resource Limits
+    local resourceSection = self:createSection("💰 การจัดการทรัพยากร", parent, theme)
+    
+    local maxSeedInput = self:createNumberInput("Max Seed Price", "ราคาเมล็ดพันธุ์สูงสุด", UltimateGarden.smart.maxSeedPrice, resourceSection, theme)
+    maxSeedInput.Changed:Connect(function(value)
+        UltimateGarden.smart.maxSeedPrice = value
+    end)
+    
+    local minCropInput = self:createNumberInput("Min Crop Value", "มูลค่าพืชขั้นต่ำ", UltimateGarden.smart.minCropValue, resourceSection, theme)
+    minCropInput.Changed:Connect(function(value)
+        UltimateGarden.smart.minCropValue = value
+    end)
+    
+    -- Priority System
+    local prioritySection = self:createSection("🎯 ระบบลำดับความสำคัญ", parent, theme)
+    local priorityList = self:createPriorityList(UltimateGarden.smart.farmPriority, prioritySection, theme)
+end
+
+-- Create Objects Tab
+function ModernUI:createObjectsTab(parent, theme)
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 10)
+    layout.Parent = parent
+    
+    layout.Changed:Connect(function()
+        parent.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
+    end)
+    
+    -- Search Box
+    local searchSection = self:createSection("🔍 ค้นหาวัตถุ", parent, theme)
+    local searchBox = self:createTextInput("Search Objects", "พิมพ์ชื่อวัตถุที่ต้องการค้นหา...", searchSection, theme)
+    
+    -- Scan Button
+    local scanBtn = self:createButton("🔄 สแกนวัตถุใหม่", UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 0), theme.accent, searchSection)
+    scanBtn.MouseButton1Click:Connect(function()
+        ObjectDetector:scan()
+    end)
+    
+    -- Object Lists
+    local categories = {"eggs", "shops", "seeds", "plants", "npcs", "pets", "rewards"}
+    local categoryNames = {
+        eggs = "🥚 ไข่",
+        shops = "🏪 ร้านค้า",
+        seeds = "🌱 เมล็ดพันธุ์",
+        plants = "🌿 พืช",
+        npcs = "👤 NPC",
+        pets = "🐾 สัตว์เลี้ยง",
+        rewards = "🎁 รางวัล"
+    }
+    
+    for _, category in pairs(categories) do
+        local categorySection = self:createSection(categoryNames[category], parent, theme)
+        local objectList = self:createObjectList(category, categorySection, theme)
         
-        local searchCorner = Instance.new("UICorner")
-        searchCorner.CornerRadius = UDim.new(0, 8)
-        searchCorner.Parent = searchBox
-        
-        local objectList = Instance.new("Frame")
-        objectList.Size = UDim2.new(1, 0, 1, -60)
-        objectList.Position = UDim2.new(0, 0, 0, 50)
-        objectList.BackgroundColor3 = colors.secondary
-        objectList.BorderSizePixel = 0
-        objectList.Parent = parent
-        
-        local listCorner = Instance.new("UICorner")
-        listCorner.CornerRadius = UDim.new(0, 8)
-        listCorner.Parent = objectList
-        
-        local listLayout = Instance.new("UIListLayout")
-        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        listLayout.Padding = UDim.new(0, 2)
-        listLayout.Parent = objectList
-        
-        -- Populate object list
-        local function populateList(filter)
-            -- Clear existing items
-            for _, child in pairs(objectList:GetChildren()) do
-                if child ~= listLayout then
-                    child:Destroy()
-                end
+        -- Update list when objects change
+        spawn(function()
+            while UltimateGarden.enabled do
+                self:updateObjectList(objectList, category, theme)
+                wait(5)
             end
+        end)
+    end
+end
+
+-- Create Stats Tab
+function ModernUI:createStatsTab(parent, theme)
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 10)
+    layout.Parent = parent
+    
+    layout.Changed:Connect(function()
+        parent.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
+    end)
+    
+    -- Performance Stats
+    local perfSection = self:createSection("⚡ ประสิทธิภาพ", parent, theme)
+    local perfStats = self:createStatsDisplay(perfSection, theme, {
+        {"FPS", "60"},
+        {"Memory", "0 MB"},
+        {"Ping", "0 ms"},
+        {"Uptime", "0m"}
+    })
+    
+    -- Farm Stats
+    local farmSection = self:createSection("🚜 การฟาร์ม", parent, theme)
+    local farmStats = self:createStatsDisplay(farmSection, theme, {
+        {"Plants Grown", "0"},
+        {"Harvests", "0"},
+        {"Sales", "0"},
+        {"Profit", "$0"}
+    })
+    
+    -- Object Stats
+    local objSection = self:createSection("📊 วัตถุที่พบ", parent, theme)
+    local objStats = self:createStatsDisplay(objSection, theme, {
+        {"Eggs", "0"},
+        {"Shops", "0"},
+        {"Seeds", "0"},
+        {"NPCs", "0"}
+    })
+    
+    -- Update stats periodically
+    spawn(function()
+        local startTime = tick()
+        while UltimateGarden.enabled do
+            -- Update performance stats
+            local uptime = tick() - startTime
+            local uptimeStr = math.floor(uptime / 60) .. "m " .. math.floor(uptime % 60) .. "s"
             
-            -- Add objects
-            for category, objects in pairs(gameObjects) do
-                if #objects > 0 then
-                    local categoryHeader = Instance.new("TextLabel")
-                    categoryHeader.Size = UDim2.new(1, 0, 0, 30)
-                    categoryHeader.BackgroundColor3 = colors.primary
-                    categoryHeader.BorderSizePixel = 0
-                    categoryHeader.Text = "📁 " .. category:upper()
-                    categoryHeader.TextColor3 = colors.accent
-                    categoryHeader.TextScaled = true
-                    categoryHeader.Font = Enum.Font.GothamBold
-                    categoryHeader.TextXAlignment = Enum.TextXAlignment.Left
-                    categoryHeader.Parent = objectList
-                    
-                    for _, obj in pairs(objects) do
-                        if not filter or obj.name:lower():find(filter:lower()) then
-                            local item = Instance.new("TextButton")
-                            item.Size = UDim2.new(1, 0, 0, 25)
-                            item.BackgroundColor3 = colors.primary
-                            item.BorderSizePixel = 0
-                            item.Text = "  • " .. obj.name
-                            item.TextColor3 = colors.text
-                            item.TextScaled = true
-                            item.Font = Enum.Font.Gotham
-                            item.TextXAlignment = Enum.TextXAlignment.Left
-                            item.Parent = objectList
-                            
-                            item.MouseButton1Click:Connect(function()
-                                if obj.object and obj.object.Parent then
-                                    -- Try to teleport to object
-                                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                                        local targetPos = obj.object:IsA("Model") and obj.object.PrimaryPart and obj.object.PrimaryPart.Position or obj.object.Position
-                                        if targetPos then
-                                            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
-                                            notify("เทเลพอร์ต", "ไปยัง " .. obj.name, "🚀")
-                                        end
-                                    end
-                                end
-                            end)
-                        end
-                    end
-                end
-            end
+            self:updateStatsDisplay(perfStats, {
+                {"FPS", tostring(math.floor(1 / RunService.Heartbeat:Wait()))},
+                {"Memory", math.floor(collectgarbage("count") / 1024) .. " MB"},
+                {"Ping", math.floor(LocalPlayer:GetNetworkPing() * 1000) .. " ms"},
+                {"Uptime", uptimeStr}
+            })
+            
+            -- Update object stats
+            local data = UltimateGarden.data.gameObjects
+            self:updateStatsDisplay(objStats, {
+                {"Eggs", tostring(#(data.eggs or {}))},
+                {"Shops", tostring(#(data.shops or {}))},
+                {"Seeds", tostring(#(data.seeds or {}))},
+                {"NPCs", tostring(#(data.npcs or {}))}
+            })
+            
+            wait(1)
         end
-        
-        -- Search functionality
-        searchBox.FocusLost:Connect(function()
-            populateList(searchBox.Text ~= "🔍 ค้นหาวัตถุ..." and searchBox.Text or nil)
-        end)
-        
-        -- Initial population
-        populateList()
-        
-        -- Rescan button
-        local rescanBtn = Instance.new("TextButton")
-        rescanBtn.Size = UDim2.new(1, 0, 0, 40)
-        rescanBtn.Position = UDim2.new(0, 0, 1, -40)
-        rescanBtn.BackgroundColor3 = colors.accent
-        rescanBtn.BorderSizePixel = 0
-        rescanBtn.Text = "🔄 สแกนใหม่"
-        rescanBtn.TextColor3 = colors.text
-        rescanBtn.TextScaled = true
-        rescanBtn.Font = Enum.Font.GothamBold
-        rescanBtn.Parent = parent
-        
-        local rescanCorner = Instance.new("UICorner")
-        rescanCorner.CornerRadius = UDim.new(0, 8)
-        rescanCorner.Parent = rescanBtn
-        
-        rescanBtn.MouseButton1Click:Connect(function()
-            scanForObjects()
-            populateList()
-            notify("Object Scanner", "สแกนเสร็จแล้ว", "🔍")
-        end)
-    end
+    end)
+end
+
+-- Create Settings Tab
+function ModernUI:createSettingsTab(parent, theme)
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 10)
+    layout.Parent = parent
     
-    -- Stats Tab
-    local function createStatsTab(parent)
-        local statsContainer = Instance.new("Frame")
-        statsContainer.Size = UDim2.new(1, 0, 1, 0)
-        statsContainer.BackgroundTransparency = 1
-        statsContainer.Parent = parent
-        
-        local statsLayout = Instance.new("UIListLayout")
-        statsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        statsLayout.Padding = UDim.new(0, 15)
-        statsLayout.Parent = statsContainer
-        
-        -- Create stat cards
-        local function createStatCard(title, value, icon, color)
-            local card = Instance.new("Frame")
-            card.Size = UDim2.new(1, 0, 0, 80)
-            card.BackgroundColor3 = color
-            card.BorderSizePixel = 0
-            card.Parent = statsContainer
-            
-            local cardCorner = Instance.new("UICorner")
-            cardCorner.CornerRadius = UDim.new(0, 12)
-            cardCorner.Parent = card
-            
-            local iconLabel = Instance.new("TextLabel")
-            iconLabel.Size = UDim2.new(0, 60, 1, 0)
-            iconLabel.BackgroundTransparency = 1
-            iconLabel.Text = icon
-            iconLabel.TextColor3 = colors.text
-            iconLabel.TextScaled = true
-            iconLabel.Font = Enum.Font.GothamBold
-            iconLabel.Parent = card
-            
-            local titleLabel = Instance.new("TextLabel")
-            titleLabel.Size = UDim2.new(1, -80, 0, 30)
-            titleLabel.Position = UDim2.new(0, 70, 0, 10)
-            titleLabel.BackgroundTransparency = 1
-            titleLabel.Text = title
-            titleLabel.TextColor3 = colors.text
-            titleLabel.TextScaled = true
-            titleLabel.Font = Enum.Font.GothamBold
-            titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-            titleLabel.Parent = card
-            
-            local valueLabel = Instance.new("TextLabel")
-            valueLabel.Size = UDim2.new(1, -80, 0, 30)
-            valueLabel.Position = UDim2.new(0, 70, 0, 40)
-            valueLabel.BackgroundTransparency = 1
-            valueLabel.Text = value
-            valueLabel.TextColor3 = colors.textSecondary
-            valueLabel.TextScaled = true
-            valueLabel.Font = Enum.Font.Gotham
-            valueLabel.TextXAlignment = Enum.TextXAlignment.Left
-            valueLabel.Parent = card
-            
-            return card, valueLabel
-        end
-        
-        -- Create stat cards
-        local eggCard, eggValue = createStatCard("ไข่ที่พบ", tostring(#gameObjects.eggs), "🥚", colors.success)
-        local shopCard, shopValue = createStatCard("ร้านค้าที่พบ", tostring(#gameObjects.shops), "🏪", colors.accent)
-        local seedCard, seedValue = createStatCard("เมล็ดพันธุ์ที่พบ", tostring(#gameObjects.seeds), "🌱", colors.warning)
-        local scriptCard, scriptValue = createStatCard("สถานะสคริป", scriptEnabled and "กำลังทำงาน" or "หยุดทำงาน", "⚡", colors.primary)
-        
-        -- Update stats periodically
-        RunService.Heartbeat:Connect(function()
-            if math.random(1, 300) == 1 then -- Update every ~5 seconds
-                eggValue.Text = tostring(#gameObjects.eggs)
-                shopValue.Text = tostring(#gameObjects.shops)
-                seedValue.Text = tostring(#gameObjects.seeds)
-                scriptValue.Text = scriptEnabled and "กำลังทำงาน" or "หยุดทำงาน"
-            end
-        end)
-    end
+    layout.Changed:Connect(function()
+        parent.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
+    end)
     
-    -- Settings Tab
-    local function createSettingsTab(parent)
-        local settingsContainer = Instance.new("Frame")
-        settingsContainer.Size = UDim2.new(1, 0, 1, 0)
-        settingsContainer.BackgroundTransparency = 1
-        settingsContainer.Parent = parent
-        
-        local settingsLayout = Instance.new("UIListLayout")
-        settingsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        settingsLayout.Padding = UDim.new(0, 15)
-        settingsLayout.Parent = settingsContainer
-        
-        -- Create setting items
-        local function createSetting(name, description, isToggle, callback)
-            local setting = Instance.new("Frame")
-            setting.Size = UDim2.new(1, 0, 0, 80)
-            setting.BackgroundColor3 = colors.secondary
-            setting.BorderSizePixel = 0
-            setting.Parent = settingsContainer
-            
-            local settingCorner = Instance.new("UICorner")
-            settingCorner.CornerRadius = UDim.new(0, 12)
-            settingCorner.Parent = setting
-            
-            local nameLabel = Instance.new("TextLabel")
-            nameLabel.Size = UDim2.new(0.7, 0, 0, 30)
-            nameLabel.Position = UDim2.new(0, 15, 0, 10)
-            nameLabel.BackgroundTransparency = 1
-            nameLabel.Text = name
-            nameLabel.TextColor3 = colors.text
-            nameLabel.TextScaled = true
-            nameLabel.Font = Enum.Font.GothamBold
-            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-            nameLabel.Parent = setting
-            
-            local descLabel = Instance.new("TextLabel")
-            descLabel.Size = UDim2.new(0.7, 0, 0, 30)
-            descLabel.Position = UDim2.new(0, 15, 0, 40)
-            descLabel.BackgroundTransparency = 1
-            descLabel.Text = description
-            descLabel.TextColor3 = colors.textSecondary
-            descLabel.TextScaled = true
-            descLabel.Font = Enum.Font.Gotham
-            descLabel.TextXAlignment = Enum.TextXAlignment.Left
-            descLabel.Parent = setting
-            
-            if isToggle then
-                local toggle = Instance.new("TextButton")
-                toggle.Size = UDim2.new(0, 60, 0, 30)
-                toggle.Position = UDim2.new(1, -80, 0.5, -15)
-                toggle.BackgroundColor3 = colors.success
-                toggle.BorderSizePixel = 0
-                toggle.Text = "เปิด"
-                toggle.TextColor3 = colors.text
-                toggle.TextScaled = true
-                toggle.Font = Enum.Font.GothamBold
-                toggle.Parent = setting
-                
-                local toggleCorner = Instance.new("UICorner")
-                toggleCorner.CornerRadius = UDim.new(0, 15)
-                toggleCorner.Parent = toggle
-                
-                toggle.MouseButton1Click:Connect(function()
-                    if callback then callback() end
-                end)
-                
-                return setting, toggle
-            else
-                local button = Instance.new("TextButton")
-                button.Size = UDim2.new(0, 80, 0, 30)
-                button.Position = UDim2.new(1, -95, 0.5, -15)
-                button.BackgroundColor3 = colors.accent
-                button.BorderSizePixel = 0
-                button.Text = "ตั้งค่า"
-                button.TextColor3 = colors.text
-                button.TextScaled = true
-                button.Font = Enum.Font.GothamBold
-                button.Parent = setting
-                
-                local buttonCorner = Instance.new("UICorner")
-                buttonCorner.CornerRadius = UDim.new(0, 8)
-                buttonCorner.Parent = button
-                
-                button.MouseButton1Click:Connect(function()
-                    if callback then callback() end
-                end)
-                
-                return setting, button
-            end
-        end
-        
-        -- Add settings
-        createSetting("ป้องกัน AFK", "ป้องกันการถูกเตะออกจากเกม", true, function()
-            antiAFK = not antiAFK
-            notify("Anti-AFK", antiAFK and "เปิดใช้งาน" or "ปิดใช้งาน", "🛡️")
-        end)
-        
-        createSetting("การแจ้งเตือน", "แสดงการแจ้งเตือนเมื่อทำงาน", true, function()
-            notify("การแจ้งเตือน", "ทดสอบการแจ้งเตือน", "🔔")
-        end)
-        
-        createSetting("เสียงเตือน", "เปิดเสียงเตือนเมื่อทำงานเสร็จ", true, function()
-            notify("เสียงเตือน", "ปิดเสียงเตือนแล้ว", "🔇")
-        end)
-        
-        createSetting("บันทึกการตั้งค่า", "บันทึกการตั้งค่าอัตโนมัติ", false, function()
-            notify("บันทึกการตั้งค่า", "บันทึกการตั้งค่าเสร็จแล้ว", "💾")
-        end)
-        
-        createSetting("รีเซ็ตการตั้งค่า", "รีเซ็ตทุกอย่างเป็นค่าเริ่มต้น", false, function()
-            autoEgg = false
-            autoShop = false
-            autoSeed = false
-            autoSell = false
-            notify("รีเซ็ต", "รีเซ็ตการตั้งค่าเสร็จแล้ว", "🔄")
-        end)
-    end
+    -- UI Settings
+    local uiSection = self:createSection("🎨 การตั้งค่า UI", parent, theme)
     
-    -- Create all tabs
-    local mainTab = createTab("หลัก", "🏠", createMainTab)
-    local explorerTab = createTab("ค้นหา", "🔍", createExplorerTab)
-    local statsTab = createTab("สถิติ", "📊", createStatsTab)
-    local settingsTab = createTab("ตั้งค่า", "⚙️", createSettingsTab)
+    -- Theme Selector
+    local themeDropdown = self:createDropdown("Theme", {"dark", "light"}, UltimateGarden.ui.theme, uiSection, theme)
+    themeDropdown.Changed:Connect(function(newTheme)
+        UltimateGarden.ui.theme = newTheme
+        Utils.notify("UI", "เปลี่ยนธีมเป็น " .. newTheme, 2, "🎨")
+        -- Recreate UI with new theme
+        spawn(function()
+            wait(0.5)
+            ModernUI:create()
+        end)
+    end)
     
-    -- Set default tab
-    mainTab.BackgroundColor3 = colors.accent
-    mainTab.TextColor3 = colors.text
-    activeTab = mainTab
-    contentFrame:FindFirstChild("หลักContent").Visible = true
+    -- Notification Toggle
+    local notifToggle = self:createToggle("Notifications", "แสดงการแจ้งเตือน", UltimateGarden.ui.showNotifications, uiSection, theme)
+    notifToggle.Button.MouseButton1Click:Connect(function()
+        UltimateGarden.ui.showNotifications = not UltimateGarden.ui.showNotifications
+        self:updateToggle(notifToggle, UltimateGarden.ui.showNotifications, theme)
+    end)
     
-    -- Make window draggable
+    -- Debug Settings
+    local debugSection = self:createSection("🔧 การตั้งค่าขั้นสูง", parent, theme)
+    
+    local debugToggle = self:createToggle("Debug Mode", "โหมดแสดงข้อมูลแก้ไขจุดบกพร่อง", UltimateGarden.debugMode, debugSection, theme)
+    debugToggle.Button.MouseButton1Click:Connect(function()
+        UltimateGarden.debugMode = not UltimateGarden.debugMode
+        self:updateToggle(debugToggle, UltimateGarden.debugMode, theme)
+        Utils.notify("Debug", "Debug Mode " .. (UltimateGarden.debugMode and "เปิด" or "ปิด"), 2, "🔧")
+    end)
+    
+    -- Anti-AFK Toggle
+    local afkToggle = self:createToggle("Anti-AFK", "ป้องกันการถูกเตะออกจากเกม", UltimateGarden.features.antiAFK, debugSection, theme)
+    afkToggle.Button.MouseButton1Click:Connect(function()
+        UltimateGarden.features.antiAFK = not UltimateGarden.features.antiAFK
+        self:updateToggle(afkToggle, UltimateGarden.features.antiAFK, theme)
+        Utils.notify("Anti-AFK", UltimateGarden.features.antiAFK and "เปิดใช้งาน" or "ปิดใช้งาน", 2, "🛡️")
+    end)
+    
+    -- Action Buttons
+    local actionSection = self:createSection("🔄 การกระทำ", parent, theme)
+    
+    local resetBtn = self:createButton("Reset All Settings", UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 0), theme.danger, actionSection)
+    resetBtn.MouseButton1Click:Connect(function()
+        -- Reset to defaults
+        UltimateGarden.performance.farmSpeed = 1.0
+        UltimateGarden.smart.maxSeedPrice = 1000
+        UltimateGarden.smart.minCropValue = 100
+        Utils.notify("Settings", "รีเซ็ตการตั้งค่าเรียบร้อย", 3, "🔄")
+    end)
+    
+    local rescanBtn = self:createButton("Rescan All Objects", UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 0), theme.accent, actionSection)
+    rescanBtn.MouseButton1Click:Connect(function()
+        ObjectDetector:scan()
+        RemoteSystem:detectRemotes()
+    end)
+end
+
+-- Helper Functions for UI Components
+
+function ModernUI:createSection(title, parent, theme)
+    local section = Instance.new("Frame")
+    section.Size = UDim2.new(1, -20, 0, 200)
+    section.Position = UDim2.new(0, 10, 0, 0)
+    section.BackgroundColor3 = theme.primary
+    section.BorderSizePixel = 0
+    section.Parent = parent
+    
+    local sectionCorner = Instance.new("UICorner")
+    sectionCorner.CornerRadius = UDim.new(0, 12)
+    sectionCorner.Parent = section
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0, 40)
+    titleLabel.Position = UDim2.new(0, 15, 0, 10)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title
+    titleLabel.TextColor3 = theme.text
+    titleLabel.TextSize = 18
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = section
+    
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Size = UDim2.new(1, -30, 1, -60)
+    contentFrame.Position = UDim2.new(0, 15, 0, 50)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = section
+    
+    local contentLayout = Instance.new("UIListLayout")
+    contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    contentLayout.Padding = UDim.new(0, 8)
+    contentLayout.Parent = contentFrame
+    
+    -- Auto-resize section
+    contentLayout.Changed:Connect(function()
+        section.Size = UDim2.new(1, -20, 0, math.max(contentLayout.AbsoluteContentSize.Y + 80, 100))
+    end)
+    
+    return contentFrame
+end
+
+function ModernUI:createButton(text, size, position, color, parent)
+    local button = Instance.new("TextButton")
+    button.Size = size
+    button.Position = position
+    button.BackgroundColor3 = color
+    button.BorderSizePixel = 0
+    button.Text = text
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextScaled = true
+    button.Font = Enum.Font.GothamBold
+    button.Parent = parent
+    
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0, 8)
+    buttonCorner.Parent = button
+    
+    -- Hover effect
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.new(color.R + 0.1, color.G + 0.1, color.B + 0.1)}):Play()
+    end)
+    
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = color}):Play()
+    end)
+    
+    return button
+end
+
+function ModernUI:createToggle(name, description, enabled, parent, theme)
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Size = UDim2.new(1, 0, 0, 60)
+    toggleFrame.BackgroundTransparency = 1
+    toggleFrame.Parent = parent
+    
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(0.7, 0, 0, 25)
+    nameLabel.Position = UDim2.new(0, 0, 0, 5)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = name
+    nameLabel.TextColor3 = theme.text
+    nameLabel.TextSize = 16
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.Parent = toggleFrame
+    
+    local descLabel = Instance.new("TextLabel")
+    descLabel.Size = UDim2.new(0.7, 0, 0, 20)
+    descLabel.Position = UDim2.new(0, 0, 0, 30)
+    descLabel.BackgroundTransparency = 1
+    descLabel.Text = description
+    descLabel.TextColor3 = theme.textSecondary
+    descLabel.TextSize = 12
+    descLabel.Font = Enum.Font.Gotham
+    descLabel.TextXAlignment = Enum.TextXAlignment.Left
+    descLabel.Parent = toggleFrame
+    
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Size = UDim2.new(0, 80, 0, 30)
+    toggleButton.Position = UDim2.new(1, -80, 0.5, -15)
+    toggleButton.BackgroundColor3 = enabled and theme.success or theme.danger
+    toggleButton.BorderSizePixel = 0
+    toggleButton.Text = enabled and "เปิด" or "ปิด"
+    toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleButton.TextSize = 14
+    toggleButton.Font = Enum.Font.GothamBold
+    toggleButton.Parent = toggleFrame
+    
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 15)
+    toggleCorner.Parent = toggleButton
+    
+    toggleFrame.Button = toggleButton
+    return toggleFrame
+end
+
+function ModernUI:updateToggle(toggleFrame, enabled, theme)
+    local button = toggleFrame.Button
+    button.BackgroundColor3 = enabled and theme.success or theme.danger
+    button.Text = enabled and "เปิด" or "ปิด"
+end
+
+function ModernUI:createSlider(name, description, minVal, maxVal, currentVal, parent, theme)
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Size = UDim2.new(1, 0, 0, 80)
+    sliderFrame.BackgroundTransparency = 1
+    sliderFrame.Parent = parent
+    
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0, 25)
+    nameLabel.Position = UDim2.new(0, 0, 0, 5)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = name .. ": " .. string.format("%.1f", currentVal)
+    nameLabel.TextColor3 = theme.text
+    nameLabel.TextSize = 16
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.Parent = sliderFrame
+    
+    local descLabel = Instance.new("TextLabel")
+    descLabel.Size = UDim2.new(1, 0, 0, 20)
+    descLabel.Position = UDim2.new(0, 0, 0, 30)
+    descLabel.BackgroundTransparency = 1
+    descLabel.Text = description
+    descLabel.TextColor3 = theme.textSecondary
+    descLabel.TextSize = 12
+    descLabel.Font = Enum.Font.Gotham
+    descLabel.TextXAlignment = Enum.TextXAlignment.Left
+    descLabel.Parent = sliderFrame
+    
+    local sliderBG = Instance.new("Frame")
+    sliderBG.Size = UDim2.new(1, 0, 0, 6)
+    sliderBG.Position = UDim2.new(0, 0, 0, 55)
+    sliderBG.BackgroundColor3 = theme.secondary
+    sliderBG.BorderSizePixel = 0
+    sliderBG.Parent = sliderFrame
+    
+    local sliderBGCorner = Instance.new("UICorner")
+    sliderBGCorner.CornerRadius = UDim.new(0, 3)
+    sliderBGCorner.Parent = sliderBG
+    
+    local sliderFill = Instance.new("Frame")
+    sliderFill.Size = UDim2.new((currentVal - minVal) / (maxVal - minVal), 0, 1, 0)
+    sliderFill.BackgroundColor3 = theme.accent
+    sliderFill.BorderSizePixel = 0
+    sliderFill.Parent = sliderBG
+    
+    local sliderFillCorner = Instance.new("UICorner")
+    sliderFillCorner.CornerRadius = UDim.new(0, 3)
+    sliderFillCorner.Parent = sliderFill
+    
+    local sliderHandle = Instance.new("TextButton")
+    sliderHandle.Size = UDim2.new(0, 20, 0, 20)
+    sliderHandle.Position = UDim2.new((currentVal - minVal) / (maxVal - minVal), -10, 0, -7)
+    sliderHandle.BackgroundColor3 = theme.accent
+    sliderHandle.BorderSizePixel = 0
+    sliderHandle.Text = ""
+    sliderHandle.Parent = sliderBG
+    
+    local handleCorner = Instance.new("UICorner")
+    handleCorner.CornerRadius = UDim.new(0, 10)
+    handleCorner.Parent = sliderHandle
+    
+    -- Slider functionality
     local dragging = false
-    local dragStart = nil
-    local startPos = nil
     
-    titleBar.InputBegan:Connect(function(input)
+    sliderHandle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
-            dragStart = input.Position
-            startPos = mainFrame.Position
         end
     end)
     
-    titleBar.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    
-    titleBar.InputEnded:Connect(function(input)
+    sliderHandle.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
         end
     end)
     
-    return screenGui
-end
-
--- Auto Functions
-local function autoBuyEgg()
-    if not autoEgg or not scriptEnabled then return end
-    
-    for _, eggData in pairs(gameObjects.eggs) do
-        if eggData.object and eggData.object.Parent then
-            local clickDetector = eggData.object:FindFirstChild("ClickDetector")
-            if clickDetector then
-                fireclickdetector(clickDetector)
-                notify("ซื้อไข่", "ซื้อ " .. eggData.name, "🥚", 2)
-                break
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local mousePos = UserInputService:GetMouseLocation()
+            local sliderPos = sliderBG.AbsolutePosition
+            local sliderSize = sliderBG.AbsoluteSize
+            
+            local relativePos = math.clamp((mousePos.X - sliderPos.X) / sliderSize.X, 0, 1)
+            local value = minVal + (maxVal - minVal) * relativePos
+            
+            sliderFill.Size = UDim2.new(relativePos, 0, 1, 0)
+            sliderHandle.Position = UDim2.new(relativePos, -10, 0, -7)
+            nameLabel.Text = name .. ": " .. string.format("%.1f", value)
+            
+            if sliderFrame.Changed then
+                sliderFrame.Changed(value)
             end
         end
-    end
+    end)
+    
+    return sliderFrame
 end
 
-local function autoBuyShop()
-    if not autoShop or not scriptEnabled then return end
+function ModernUI:createNumberInput(name, description, currentVal, parent, theme)
+    local inputFrame = Instance.new("Frame")
+    inputFrame.Size = UDim2.new(1, 0, 0, 80)
+    inputFrame.BackgroundTransparency = 1
+    inputFrame.Parent = parent
     
-    for _, shopData in pairs(gameObjects.shops) do
-        if shopData.object and shopData.object.Parent then
-            local clickDetector = shopData.object:FindFirstChild("ClickDetector")
-            if clickDetector then
-                fireclickdetector(clickDetector)
-                notify("ซื้อร้านค้า", "อัพเกรด " .. shopData.name, "🏪", 2)
-                break
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(0.6, 0, 0, 25)
+    nameLabel.Position = UDim2.new(0, 0, 0, 5)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = name
+    nameLabel.TextColor3 = theme.text
+    nameLabel.TextSize = 16
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.Parent = inputFrame
+    
+    local descLabel = Instance.new("TextLabel")
+    descLabel.Size = UDim2.new(1, 0, 0, 20)
+    descLabel.Position = UDim2.new(0, 0, 0, 30)
+    descLabel.BackgroundTransparency = 1
+    descLabel.Text = description
+    descLabel.TextColor3 = theme.textSecondary
+    descLabel.TextSize = 12
+    descLabel.Font = Enum.Font.Gotham
+    descLabel.TextXAlignment = Enum.TextXAlignment.Left
+    descLabel.Parent = inputFrame
+    
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(0.3, 0, 0, 30)
+    textBox.Position = UDim2.new(0.7, 0, 0, 0)
+    textBox.BackgroundColor3 = theme.secondary
+    textBox.BorderSizePixel = 0
+    textBox.Text = tostring(currentVal)
+    textBox.TextColor3 = theme.text
+    textBox.TextSize = 14
+    textBox.Font = Enum.Font.Gotham
+    textBox.PlaceholderText = "ใส่ตัวเลข..."
+    textBox.Parent = inputFrame
+    
+    local textBoxCorner = Instance.new("UICorner")
+    textBoxCorner.CornerRadius = UDim.new(0, 6)
+    textBoxCorner.Parent = textBox
+    
+    textBox.FocusLost:Connect(function()
+        local value = tonumber(textBox.Text) or currentVal
+        textBox.Text = tostring(value)
+        if inputFrame.Changed then
+            inputFrame.Changed(value)
+        end
+    end)
+    
+    return inputFrame
+end
+
+function ModernUI:createDropdown(name, options, currentValue, parent, theme)
+    local dropdownFrame = Instance.new("Frame")
+    dropdownFrame.Size = UDim2.new(1, 0, 0, 60)
+    dropdownFrame.BackgroundTransparency = 1
+    dropdownFrame.Parent = parent
+    
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(0.6, 0, 1, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = name
+    nameLabel.TextColor3 = theme.text
+    nameLabel.TextSize = 16
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.Parent = dropdownFrame
+    
+    local dropdown = Instance.new("TextButton")
+    dropdown.Size = UDim2.new(0.35, 0, 0, 35)
+    dropdown.Position = UDim2.new(0.65, 0, 0.5, -17)
+    dropdown.BackgroundColor3 = theme.secondary
+    dropdown.BorderSizePixel = 0
+    dropdown.Text = currentValue .. " ▼"
+    dropdown.TextColor3 = theme.text
+    dropdown.TextSize = 14
+    dropdown.Font = Enum.Font.Gotham
+    dropdown.Parent = dropdownFrame
+    
+    local dropdownCorner = Instance.new("UICorner")
+    dropdownCorner.CornerRadius = UDim.new(0, 6)
+    dropdownCorner.Parent = dropdown
+    
+    local expanded = false
+    local optionFrame = Instance.new("Frame")
+    optionFrame.Size = UDim2.new(1, 0, 0, #options * 30)
+    optionFrame.Position = UDim2.new(0, 0, 1, 5)
+    optionFrame.BackgroundColor3 = theme.secondary
+    optionFrame.BorderSizePixel = 0
+    optionFrame.Visible = false
+    optionFrame.Parent = dropdown
+    
+    local optionCorner = Instance.new("UICorner")
+    optionCorner.CornerRadius = UDim.new(0, 6)
+    optionCorner.Parent = optionFrame
+    
+    local optionLayout = Instance.new("UIListLayout")
+    optionLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    optionLayout.Parent = optionFrame
+    
+    for i, option in pairs(options) do
+        local optionBtn = Instance.new("TextButton")
+        optionBtn.Size = UDim2.new(1, 0, 0, 30)
+        optionBtn.BackgroundColor3 = theme.secondary
+        optionBtn.BorderSizePixel = 0
+        optionBtn.Text = option
+        optionBtn.TextColor3 = theme.text
+        optionBtn.TextSize = 14
+        optionBtn.Font = Enum.Font.Gotham
+        optionBtn.Parent = optionFrame
+        
+        optionBtn.MouseButton1Click:Connect(function()
+            dropdown.Text = option .. " ▼"
+            optionFrame.Visible = false
+            expanded = false
+            if dropdownFrame.Changed then
+                dropdownFrame.Changed(option)
             end
-        end
+        end)
+        
+        optionBtn.MouseEnter:Connect(function()
+            optionBtn.BackgroundColor3 = theme.accent
+        end)
+        
+        optionBtn.MouseLeave:Connect(function()
+            optionBtn.BackgroundColor3 = theme.secondary
+        end)
     end
+    
+    dropdown.MouseButton1Click:Connect(function()
+        expanded = not expanded
+        optionFrame.Visible = expanded
+        dropdown.Text = string.gsub(dropdown.Text, " [▼▲]", "") .. (expanded and " ▲" or " ▼")
+    end)
+    
+    return dropdownFrame
 end
 
-local function autoBuySeeds()
-    if not autoSeed or not scriptEnabled then return end
+function ModernUI:createTextInput(name, placeholder, parent, theme)
+    local inputFrame = Instance.new("Frame")
+    inputFrame.Size = UDim2.new(1, 0, 0, 50)
+    inputFrame.BackgroundTransparency = 1
+    inputFrame.Parent = parent
     
-    for _, seedData in pairs(gameObjects.seeds) do
-        if seedData.object and seedData.object.Parent then
-            local clickDetector = seedData.object:FindFirstChild("ClickDetector")
-            if clickDetector then
-                fireclickdetector(clickDetector)
-                notify("ซื้อเมล็ดพันธุ์", "ซื้อ " .. seedData.name, "🌱", 2)
-                break
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(1, 0, 1, 0)
+    textBox.BackgroundColor3 = theme.secondary
+    textBox.BorderSizePixel = 0
+    textBox.Text = ""
+    textBox.TextColor3 = theme.text
+    textBox.TextSize = 14
+    textBox.Font = Enum.Font.Gotham
+    textBox.PlaceholderText = placeholder
+    textBox.PlaceholderColor3 = theme.textSecondary
+    textBox.Parent = inputFrame
+    
+    local textBoxCorner = Instance.new("UICorner")
+    textBoxCorner.CornerRadius = UDim.new(0, 8)
+    textBoxCorner.Parent = textBox
+    
+    return textBox
+end
+
+function ModernUI:createObjectList(category, parent, theme)
+    local listFrame = Instance.new("ScrollingFrame")
+    listFrame.Size = UDim2.new(1, 0, 0, 150)
+    listFrame.BackgroundColor3 = theme.secondary
+    listFrame.BorderSizePixel = 0
+    listFrame.ScrollBarThickness = 6
+    listFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    listFrame.Parent = parent
+    
+    local listCorner = Instance.new("UICorner")
+    listCorner.CornerRadius = UDim.new(0, 8)
+    listCorner.Parent = listFrame
+    
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Padding = UDim.new(0, 2)
+    listLayout.Parent = listFrame
+    
+    listLayout.Changed:Connect(function()
+        listFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+    end)
+    
+    return listFrame
+end
+
+function ModernUI:updateObjectList(listFrame, category, theme)
+    -- Clear existing items
+    for _, child in pairs(listFrame:GetChildren()) do
+        if child.Name == "ObjectItem" then
+            child:Destroy()
+        end
+    end
+    
+    local objects = UltimateGarden.data.gameObjects[category] or {}
+    
+    for i, obj in pairs(objects) do
+        if i > 20 then break end -- Limit to 20 items for performance
+        
+        local item = Instance.new("TextButton")
+        item.Name = "ObjectItem"
+        item.Size = UDim2.new(1, 0, 0, 25)
+        item.BackgroundColor3 = theme.primary
+        item.BorderSizePixel = 0
+        item.Text = "• " .. obj.name .. " (Value: " .. string.format("%.1f", obj.value) .. ")"
+        item.TextColor3 = theme.text
+        item.TextSize = 12
+        item.Font = Enum.Font.Gotham
+        item.TextXAlignment = Enum.TextXAlignment.Left
+        item.Parent = listFrame
+        
+        item.MouseButton1Click:Connect(function()
+            -- Teleport to object
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and obj.position then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(obj.position + Vector3.new(0, 5, 0))
+                Utils.notify("Teleport", "เทเลพอร์ตไปยัง " .. obj.name, 2, "🚀")
             end
+        end)
+        
+        item.MouseEnter:Connect(function()
+            item.BackgroundColor3 = theme.accent
+        end)
+        
+        item.MouseLeave:Connect(function()
+            item.BackgroundColor3 = theme.primary
+        end)
+    end
+end
+
+function ModernUI:createStatsDisplay(parent, theme, stats)
+    local statsFrame = Instance.new("Frame")
+    statsFrame.Size = UDim2.new(1, 0, 0, #stats * 30 + 20)
+    statsFrame.BackgroundColor3 = theme.secondary
+    statsFrame.BorderSizePixel = 0
+    statsFrame.Parent = parent
+    
+    local statsCorner = Instance.new("UICorner")
+    statsCorner.CornerRadius = UDim.new(0, 8)
+    statsCorner.Parent = statsFrame
+    
+    local statsLayout = Instance.new("UIListLayout")
+    statsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    statsLayout.Padding = UDim.new(0, 5)
+    statsLayout.Parent = statsFrame
+    
+    local statLabels = {}
+    
+    for i, stat in pairs(stats) do
+        local statFrame = Instance.new("Frame")
+        statFrame.Size = UDim2.new(1, -20, 0, 25)
+        statFrame.Position = UDim2.new(0, 10, 0, 0)
+        statFrame.BackgroundTransparency = 1
+        statFrame.Parent = statsFrame
+        
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Size = UDim2.new(0.6, 0, 1, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = stat[1] .. ":"
+        nameLabel.TextColor3 = theme.text
+        nameLabel.TextSize = 14
+        nameLabel.Font = Enum.Font.Gotham
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.Parent = statFrame
+        
+        local valueLabel = Instance.new("TextLabel")
+        valueLabel.Size = UDim2.new(0.4, 0, 1, 0)
+        valueLabel.Position = UDim2.new(0.6, 0, 0, 0)
+        valueLabel.BackgroundTransparency = 1
+        valueLabel.Text = stat[2]
+        valueLabel.TextColor3 = theme.accent
+        valueLabel.TextSize = 14
+        valueLabel.Font = Enum.Font.GothamBold
+        valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+        valueLabel.Parent = statFrame
+        
+        statLabels[stat[1]] = valueLabel
+    end
+    
+    return statLabels
+end
+
+function ModernUI:updateStatsDisplay(statLabels, stats)
+    for _, stat in pairs(stats) do
+        if statLabels[stat[1]] then
+            statLabels[stat[1]].Text = stat[2]
         end
     end
 end
 
-local function autoCollectCoins()
-    if not autoCollect or not scriptEnabled then return end
+function ModernUI:makeDraggable(dragHandle, frame)
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
     
-    for _, coinData in pairs(gameObjects.collectibles) do
-        if coinData.object and coinData.object.Parent then
-            local clickDetector = coinData.object:FindFirstChild("ClickDetector")
-            if clickDetector then
-                fireclickdetector(clickDetector)
-            end
+    dragHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
         end
-    end
+    end)
+    
+    dragHandle.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    
+    dragHandle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
 end
 
--- Player Enhancement Functions
-local function handleFly()
-    if not flyEnabled then return end
-    
-    local character = LocalPlayer.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    
-    local humanoidRootPart = character.HumanoidRootPart
-    local bodyVelocity = humanoidRootPart:FindFirstChild("FlyVelocity")
-    if not bodyVelocity then
-        bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        bodyVelocity.Name = "FlyVelocity"
-        bodyVelocity.Parent = humanoidRootPart
-    end
-    
-    local camera = workspace.CurrentCamera
-    local moveVector = Vector3.new(0, 0, 0)
-    
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-        moveVector = moveVector + camera.CFrame.LookVector
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-        moveVector = moveVector - camera.CFrame.LookVector
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-        moveVector = moveVector - camera.CFrame.RightVector
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-        moveVector = moveVector + camera.CFrame.RightVector
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-        moveVector = moveVector + Vector3.new(0, 1, 0)
-    end
-    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-        moveVector = moveVector - Vector3.new(0, 1, 0)
-    end
-    
-    bodyVelocity.Velocity = moveVector * 50
-end
-
-local function handleNoclip()
-    if not noclipEnabled then return end
-    
-    local character = LocalPlayer.Character
-    if not character then return end
-    
-    for _, part in pairs(character:GetChildren()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
-    end
-end
+-- ============================================================================
+-- MAIN EXECUTION SYSTEM
+-- ============================================================================
 
 -- Main Loop
-local lastUpdate = tick()
-local updateInterval = 1 -- seconds
-
-RunService.Heartbeat:Connect(function()
-    if not scriptEnabled then return end
+local function mainLoop()
+    Utils.log("Starting main loop...", "main")
     
-    local now = tick()
+    local lastScan = 0
+    local lastRemoteScan = 0
+    local actionCount = 0
     
-    -- Auto functions (run every second)
-    if now - lastUpdate >= updateInterval then
-        if autoEgg then autoBuyEgg() end
-        if autoShop then autoBuyShop() end
-        if autoSeed then autoBuySeeds() end
-        if autoCollect then autoCollectCoins() end
+    while UltimateGarden.enabled do
+        local currentTime = tick()
         
-        -- Rescan objects occasionally
-        if math.random(1, 30) == 1 then
-            scanForObjects()
+        -- Scan for objects periodically
+        if currentTime - lastScan > UltimateGarden.performance.scanInterval then
+            ObjectDetector:scan()
+            lastScan = currentTime
         end
         
-        lastUpdate = now
+        -- Scan for remotes less frequently
+        if currentTime - lastRemoteScan > 120 then -- Every 2 minutes
+            RemoteSystem:detectRemotes()
+            lastRemoteScan = currentTime
+        end
+        
+        -- Generate smart farming actions
+        if UltimateGarden.features.smartFarming then
+            SmartFarm:generateActions()
+        end
+        
+        -- Process farming queue
+        SmartFarm:processQueue()
+        
+        -- Auto-equip pet
+        if UltimateGarden.features.autoEquipPet then
+            Utils.debounce("auto_pet", function()
+                PetManager:equipBestPet()
+            end, 30) -- Every 30 seconds
+        end
+        
+        -- Auto-claim rewards
+        if UltimateGarden.features.autoClaimRewards then
+            Utils.debounce("auto_rewards", function()
+                RewardManager:claimRewards()
+            end, 60) -- Every minute
+        end
+        
+        -- Rate limiting
+        actionCount = actionCount + 1
+        if actionCount >= UltimateGarden.performance.maxActions then
+            actionCount = 0
+            wait(UltimateGarden.performance.farmSpeed)
+        else
+            wait(0.1)
+        end
     end
     
-    -- Real-time functions
-    if flyEnabled then handleFly() end
-    if noclipEnabled then handleNoclip() end
-end)
+    Utils.log("Main loop stopped.", "main")
+end
 
--- Cleanup when player leaves
-LocalPlayer.CharacterRemoving:Connect(function()
-    if LocalPlayer.Character then
-        local humanoidRootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if humanoidRootPart then
-            local flyVelocity = humanoidRootPart:FindFirstChild("FlyVelocity")
-            if flyVelocity then
-                flyVelocity:Destroy()
-            end
+-- Anti-AFK System
+local function setupAntiAFK()
+    Players.LocalPlayer.Idled:Connect(function()
+        if UltimateGarden.features.antiAFK then
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+            Utils.log("Anti-AFK triggered", "antiaFK")
         end
+    end)
+end
+
+-- Error Handler
+local function setupErrorHandler()
+    local function handleError(err)
+        Utils.log("Unhandled error: " .. tostring(err), "error")
+        Utils.notify("Error", "เกิดข้อผิดพลาด: " .. tostring(err), 5, "❌")
     end
-end)
-
--- Initialize
-local gui = createModernUI()
-notify("🌱 Grow Garden Pro", "สคริปขั้นสูงโหลดเสร็จแล้ว! ระบบครบครัน", "🚀", 5)
-
--- Auto-detect remotes
-spawn(function()
-    wait(5)
-    if ReplicatedStorage then
-        local remotes = ReplicatedStorage:GetChildren()
-        print("🔍 พบ RemoteEvent ทั้งหมด " .. #remotes .. " รายการ")
-        for _, remote in pairs(remotes) do
-            if remote:IsA("RemoteEvent") then
-                print("📡 RemoteEvent: " .. remote.Name)
-            end
+    
+    -- Wrap main functions in error handlers
+    spawn(function()
+        local success, err = pcall(mainLoop)
+        if not success then
+            handleError(err)
         end
-    end
-end)
+    end)
+end
 
-print("🌱 Grow Garden Pro Script loaded successfully!")
-print("🔍 Object Scanner: " .. #gameObjects.eggs .. " eggs, " .. #gameObjects.shops .. " shops found")
-print("🚀 All systems operational!")
+-- ============================================================================
+-- INITIALIZATION
+-- ============================================================================
+
+local function initialize()
+    Utils.log("Initializing Ultimate Garden Pro v" .. UltimateGarden.version, "init")
+    
+    -- Setup core systems
+    setupAntiAFK()
+    setupErrorHandler()
+    
+    -- Initial scans
+    ObjectDetector:scan()
+    RemoteSystem:detectRemotes()
+    
+    -- Create UI
+    ModernUI:create()
+    
+    -- Start main loop
+    spawn(mainLoop)
+    
+    -- Welcome message
+    Utils.notify("🌱 Ultimate Garden Pro", "เวอร์ชั่น " .. UltimateGarden.version .. " พร้อมใช้งาน!", 5, "🚀")
+    Utils.log("Initialization complete!", "init")
+end
+
+-- Start the script
+initialize()
+
+-- ============================================================================
+-- CLEANUP ON SCRIPT END
+-- ============================================================================
+
+local function cleanup()
+    UltimateGarden.enabled = false
+    Utils.log("Script cleanup completed", "cleanup")
+end
+
+-- Register cleanup
+game:GetService("Players").PlayerRemoving:Connect(cleanup)
+
+print("🌱 Grow Garden Ultimate Pro v" .. UltimateGarden.version .. " loaded successfully!")
+print("📊 Features: Smart Farming, Auto-Equip Pet, Auto-Claim Rewards, Modern UI")
+print("🔧 Performance: Optimized scanning, debounced actions, error handling")
+print("🎨 UI: Modern design, theme system, responsive layout")
