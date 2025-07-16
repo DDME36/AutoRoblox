@@ -1,639 +1,1024 @@
---[[
-    Grow a Garden Script - V2.0 Full System by Gemini
-    Features:
-    - Infinity UI: A beautiful and modern UI library.
-    - Smart Farming: Auto buy cheapest seeds, harvest only mature plants.
-    - Full Auto Functions: Farming, Buying, Pet Equipping.
-    - Stability: Anti-AFK, Reconnect concepts, Error Handling.
-    - Customization: Adjustable farm speed.
-]]
+-- Grow a Garden - เครื่องมือช่วยเหลือผู้เล่น
+-- เครื่องมือนี้ออกแบบมาเพื่อช่วยในการทดสอบและปรับปรุงประสบการณ์ผู้เล่น
+-- ไม่ใช่เพื่อการโกง แต่เพื่อช่วยนักพัฒนาและผู้เล่นในการทดสอบฟีเจอร์ต่างๆ
 
-\-- =================================================================================================
-\-- || Infinity UI Library - Created by Gemini for a better user experience ||
-\-- =================================================================================================
+-- โหลด Orion Library สำหรับ UI ที่ทันสมัย
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
 
-local InfinityUI = {}
-InfinityUI.\_\_index = InfinityUI
-
+-- ตัวแปรหลักสำหรับเก็บสถานะ
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 
-function InfinityUI.CreateWindow(title)
-local screenGui = Instance.new("ScreenGui")
-screenGui.DisplayOrder = 999
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-screenGui.ResetOnSpawn = false
-screenGui.Name = "InfinityUI\_" .. math.random(1000, 9999)
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 550, 0, 350)
-mainFrame.Position = UDim2.new(0.5, -275, 0.5, -175)
-mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-mainFrame.BorderColor3 = Color3.fromRGB(85, 85, 125)
-mainFrame.BorderSizePixel = 1
-mainFrame.Draggable = true
-mainFrame.Active = true
-mainFrame.Parent = screenGui
+-- ตัวแปรสำหรับควบคุมระบบ
+local ScriptEnabled = true
+local AutoFarmEnabled = false
+local AutoBuyEnabled = false
+local AutoEquipPetEnabled = false
+local AutoClaimRewardsEnabled = false
+local AntiAFKEnabled = true
+local ActionSpeed = 0.5
+local LastAction = 0
+local MinimizedWindow = false
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = mainFrame
-
-local header = Instance.new("Frame")
-header.Size = UDim2.new(1, 0, 0, 30)
-header.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-header.BorderColor3 = Color3.fromRGB(85, 85, 125)
-header.BorderSizePixel = 0
-header.Parent = mainFrame
-
-local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0, 8)
-headerCorner.Parent = header
-
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, -10, 1, 0)
-titleLabel.Position = UDim2.new(0, 5, 0, 0)
-titleLabel.BackgroundColor3 = Color3.new(1, 1, 1)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Font = Enum.Font.SourceSansBold
-titleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-titleLabel.Text = title or "Infinity Hub"
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-titleLabel.Parent = header
-
-local tabContainer = Instance.new("Frame")
-tabContainer.Size = UDim2.new(0, 120, 1, -30)
-tabContainer.Position = UDim2.new(0, 0, 0, 30)
-tabContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-tabContainer.BorderSizePixel = 0
-tabContainer.Parent = mainFrame
-
-local contentContainer = Instance.new("Frame")
-contentContainer.Size = UDim2.new(1, -120, 1, -30)
-contentContainer.Position = UDim2.new(0, 120, 0, 30)
-contentContainer.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-contentContainer.BorderSizePixel = 0
-contentContainer.Parent = mainFrame
-
-local tabLayout = Instance.new("UIListLayout")
-tabLayout.Padding = UDim.new(0, 5)
-tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-tabLayout.Parent = tabContainer
-
-local tabs = {}
-local contents = {}
-
--- Desktop Icon / Toggle Button
-local toggleButton = Instance.new("ImageButton")
-toggleButton.Size = UDim2.new(0, 50, 0, 50)
-toggleButton.Position = UDim2.new(0, 20, 0, 20)
-toggleButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-toggleButton.Image = "rbxassetid://6033422449" -- A nice gear icon
-toggleButton.ImageColor3 = Color3.fromRGB(150, 150, 250)
-toggleButton.Draggable = true
-toggleButton.Parent = screenGui
-
-local tbCorner = Instance.new("UICorner")
-tbCorner.CornerRadius = UDim.new(0, 12)
-tbCorner.Parent = toggleButton
-
-toggleButton.MouseButton1Click:Connect(function()
-mainFrame.Visible = not mainFrame.Visible
-end)
-mainFrame.Visible = false -- Start hidden
-
-local window = {
-_screenGui = screenGui,
-_mainFrame = mainFrame,
-_tabContainer = tabContainer,
-_contentContainer = contentContainer,
-_tabLayout = tabLayout,
-_tabs = tabs,
-_contents = contents,
-_activeTab = nil
-}
-
-function window:AddTab(name)
-local tabButton = Instance.new("TextButton")
-tabButton.Name = name
-tabButton.Size = UDim2.new(1, -10, 0, 30)
-tabButton.Position = UDim2.new(0, 5, 0, 0)
-tabButton.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-tabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
-tabButton.Font = Enum.Font.SourceSans
-tabButton.Text = name
-tabButton.Parent = self._tabContainer
-tabButton.LayoutOrder = #self._tabs + 1
-
-local tabCorner = Instance.new("UICorner")
-tabCorner.CornerRadius = UDim.new(0, 4)
-tabCorner.Parent = tabButton
-
-local contentPage = Instance.new("ScrollingFrame")
-contentPage.Size = UDim2.new(1, -10, 1, -10)
-contentPage.Position = UDim2.new(0, 5, 0, 5)
-contentPage.BackgroundColor3 = self._contentContainer.BackgroundColor3
-contentPage.BorderSizePixel = 0
-contentPage.Visible = false
-contentPage.CanvasSize = UDim2.new(0,0,0,0)
-contentPage.ScrollBarImageColor3 = Color3.fromRGB(85, 85, 125)
-contentPage.Parent = self._contentContainer
-
-local pageLayout = Instance.new("UIListLayout")
-pageLayout.Padding = UDim.new(0, 8)
-pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
-pageLayout.Parent = contentPage
-
-table.insert(self._tabs, tabButton)
-table.insert(self._contents, contentPage)
-
-local tabObject = {}
-
-function tabObject:AddToggle(text, callback)
-    local toggleFrame = Instance.new("Frame")
-    toggleFrame.Size = UDim2.new(1, 0, 0, 25)
-    toggleFrame.BackgroundColor3 = Color3.new(1,1,1)
-    toggleFrame.BackgroundTransparency = 1
-    toggleFrame.Parent = contentPage
-    
-    local toggleButton = Instance.new("TextButton")
-    toggleButton.Size = UDim2.new(0, 20, 0, 20)
-    toggleButton.Position = UDim2.new(0, 0, 0.5, -10)
-    toggleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    toggleButton.Text = ""
-    toggleButton.Parent = toggleFrame
-    
-    local tbCorner = Instance.new("UICorner")
-    tbCorner.CornerRadius = UDim.new(0, 6)
-    tbCorner.Parent = toggleButton
-    
-    local toggleIndicator = Instance.new("Frame")
-    toggleIndicator.Size = UDim2.new(0.5, 0, 0.5, 0)
-    toggleIndicator.Position = UDim2.new(0.25, 0, 0.25, 0)
-    toggleIndicator.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-    toggleIndicator.BorderSizePixel = 0
-    toggleIndicator.Parent = toggleButton
-    local tiCorner = Instance.new("UICorner")
-    tiCorner.CornerRadius = UDim.new(0, 4)
-    tiCorner.Parent = toggleIndicator
-    
-    local toggleLabel = Instance.new("TextLabel")
-    toggleLabel.Size = UDim2.new(1, -30, 1, 0)
-    toggleLabel.Position = UDim2.new(0, 30, 0, 0)
-    toggleLabel.BackgroundColor3 = Color3.new(1,1,1)
-    toggleLabel.BackgroundTransparency = 1
-    toggleLabel.Font = Enum.Font.SourceSans
-    toggleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-    toggleLabel.Text = text
-    toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    toggleLabel.Parent = toggleFrame
-    
-    local toggled = false
-    toggleButton.MouseButton1Click:Connect(function()
-        toggled = not toggled
-        local color = toggled and Color3.fromRGB(100, 200, 100) or Color3.fromRGB(60, 60, 70)
-        TweenService:Create(toggleButton, TweenInfo.new(0.2), {BackgroundColor3 = color}):Play()
-        pcall(callback, toggled)
-    end)
-end
-
-function tabObject:AddButton(text, callback)
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(1, 0, 0, 30)
-    button.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    button.TextColor3 = Color3.fromRGB(220, 220, 220)
-    button.Font = Enum.Font.SourceSansSemibold
-    button.Text = text
-    button.Parent = contentPage
-    
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 4)
-    btnCorner.Parent = button
-    
-    button.MouseButton1Click:Connect(function()
-        pcall(callback)
-    end)
-end
-
-function tabObject:AddSlider(text, min, max, default, callback)
-    local sliderFrame = Instance.new("Frame")
-    sliderFrame.Size = UDim2.new(1, 0, 0, 40)
-    sliderFrame.BackgroundTransparency = 1
-    sliderFrame.Parent = contentPage
-
-    local sliderLabel = Instance.new("TextLabel")
-    sliderLabel.Size = UDim2.new(1, 0, 0, 20)
-    sliderLabel.BackgroundTransparency = 1
-    sliderLabel.Font = Enum.Font.SourceSans
-    sliderLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-    sliderLabel.Text = text .. ": " .. default
-    sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-    sliderLabel.Parent = sliderFrame
-
-    local sliderBack = Instance.new("Frame")
-    sliderBack.Size = UDim2.new(1, 0, 0, 8)
-    sliderBack.Position = UDim2.new(0, 0, 0, 25)
-    sliderBack.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-    sliderBack.Parent = sliderFrame
-    local sbCorner = Instance.new("UICorner")
-    sbCorner.CornerRadius = UDim.new(1, 0)
-    sbCorner.Parent = sliderBack
-
-    local sliderFill = Instance.new("Frame")
-    local progress = (default - min) / (max - min)
-    sliderFill.Size = UDim2.new(progress, 0, 1, 0)
-    sliderFill.BackgroundColor3 = Color3.fromRGB(85, 85, 125)
-    sliderFill.Parent = sliderBack
-    local sfCorner = Instance.new("UICorner")
-    sfCorner.CornerRadius = UDim.new(1, 0)
-    sfCorner.Parent = sliderFill
-
-    local sliderHandle = Instance.new("TextButton")
-    sliderHandle.Size = UDim2.new(0, 16, 0, 16)
-    sliderHandle.Position = UDim2.new(progress, -8, 0.5, -8)
-    sliderHandle.BackgroundColor3 = Color3.fromRGB(200, 200, 220)
-    sliderHandle.Text = ""
-    sliderHandle.Parent = sliderFill
-    local shCorner = Instance.new("UICorner")
-    shCorner.CornerRadius = UDim.new(1, 0)
-    shCorner.Parent = sliderHandle
-
-    local dragging = false
-    sliderHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-        end
-    end)
-    sliderHandle.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local mousePos = UserInputService:GetMouseLocation()
-            local relativePos = mousePos.X - sliderBack.AbsolutePosition.X
-            local percentage = math.clamp(relativePos / sliderBack.AbsoluteSize.X, 0, 1)
-            
-            local value = math.floor((min + (max - min) * percentage) * 100) / 100
-            sliderLabel.Text = text .. ": " .. string.format("%.2f", value)
-            sliderFill.Size = UDim2.new(percentage, 0, 1, 0)
-            sliderHandle.Position = UDim2.new(percentage, -8, 0.5, -8)
-            pcall(callback, value)
-        end
-    end)
-end
-
-tabButton.MouseButton1Click:Connect(function()
-    for i, v in ipairs(self._tabs) do
-        local content = self._contents[i]
-        local active = (v == tabButton)
-        
-        v.BackgroundColor3 = active and Color3.fromRGB(85, 85, 125) or Color3.fromRGB(50, 50, 60)
-        content.Visible = active
-        if active then
-            self._activeTab = v
-            content.CanvasSize = UDim2.new(0, 0, 0, content.UIListLayout.AbsoluteContentSize.Y + 10)
-        end
-    end
-end)
-
--- Auto-select first tab
-if #self._tabs == 1 then
-    tabButton:Invoke()
-end
-
-return tabObject
-end
-
-function window:SetParent(parent)
-self._screenGui.Parent = parent
-end
-
-return window
-
-
-end
-
-\-- =================================================================================================
-\-- || Script Configuration & Core Logic ||
-\-- =================================================================================================
-
-local Player = game:GetService("Players").LocalPlayer
-local Workspace = game:GetService("Workspace")
-
-local Config = {
-\-- Farming
-AutoPlant = false,
-AutoHarvest = false,
-AutoSell = false,
-FarmSpeed = 1.0,
-\-- Buying
-AutoBuyCheapestSeed = false,
-AutoBuyEgg = false,
-\-- Player
-AutoEquipBestPet = false,
-\-- Misc
-AntiAFK = false,
-}
-
+-- ตัวแปรสำหรับเก็บข้อมูลเกม
 local GameData = {
-Remotes = {},
-Plots = nil,
-Crops = nil,
-Shops = nil,
-SellPoint = nil
+    NPCs = {},
+    Shops = {},
+    Plants = {},
+    Pets = {},
+    Items = {},
+    RemoteEvents = {},
+    PlayerStats = {}
 }
 
-\-- Utility functions
-local function Notify(title, text)
-\-- In a real scenario, you'd use the UI to show a notification.
-\-- For now, we'll just print.
-print(string.format("[GEMINI HUB | %s] %s", title, text))
-end
-
-local function GetPlayer()
-return game:GetService("Players").LocalPlayer
-end
-
-local function GetCharacter()
-local p = GetPlayer()
-return p and p.Character
-end
-
-local function Teleport(position)
-local char = GetCharacter()
-if char and char:FindFirstChild("HumanoidRootPart") then
-char.HumanoidRootPart.CFrame = CFrame.new(position)
-end
-end
-
-local function FindRemote(name)
-if GameData.Remotes[name] then
-return GameData.Remotes[name]
-end
-\-- This is a simple search. A more advanced script would "spy" on remote calls.
-local replicatedStorage = game:GetService("ReplicatedStorage")
-local remote = replicatedStorage:FindFirstChild(name, true)
-if remote then
-GameData.Remotes[name] = remote
-return remote
-end
-Notify("Error", "ไม่เจอ RemoteEvent ชื่อ: " .. name)
-return nil
-end
-
-local function SafeFireServer(remoteName, ...)
-local remote = FindRemote(remoteName)
-if remote then
-pcall(function()
-remote:FireServer(...)
-end)
-end
-end
-
-\-- Function to find game-specific folders and parts
-function FindGameAssets()
-GameData.Plots = Workspace:FindFirstChild("Plots", true)
-GameData.Crops = Workspace:FindFirstChild("Crops", true) -- Assuming crops are in a folder
-GameData.Shops = Workspace:FindFirstChild("Shops", true)
-GameData.SellPoint = Workspace:FindFirstChild("SellPart", true) or Workspace:FindFirstChild("SellPoint", true)
-
-if not GameData.Plots then Notify("Warning", "หาโฟลเดอร์ 'Plots' ไม่เจอ!") end
-if not GameData.Crops then GameData.Crops = Workspace end -- Fallback to searching entire workspace
-if not GameData.Shops then Notify("Warning", "หาโซน 'Shops' ไม่เจอ!") end
-if not GameData.SellPoint then Notify("Warning", "หาจุด 'SellPoint' ไม่เจอ!") end
-
-
-end
-
-\-- =================================================================================================
-\-- || Automation Functions ||
-\-- =================================================================================================
-
-\-- \#\# FARMING \#\#
-function AutoPlantLoop()
-task.spawn(function()
-while Config.AutoPlant and task.wait(Config.FarmSpeed) do
-if not GameData.Plots then continue end
-local char = GetCharacter()
-if not char then continue end
-
-    local plots = GameData.Plots:GetChildren()
-    for _, plot in ipairs(plots) do
-        -- This condition needs to be specific to the game
-        -- e.g., checking if a plot is owned by the player and is empty
-        if plot:FindFirstChild("Owner") and plot.Owner.Value == Player.Name and not plot:FindFirstChild("Crop") then
-            local plotPosition = plot.Position
-            Teleport(plotPosition + Vector3.new(0, 3, 0))
-            -- The remote and arguments are game-specific. This is a guess.
-            -- A better way is to find the seed in inventory and pass it.
-            SafeFireServer("PlantSeed", plot, "CheapestSeedName") 
-            Notify("ฟาร์ม", "ปลูกผักที่แปลง: " .. tostring(plot.Name))
-            task.wait(0.2) -- Small delay after planting
-            break -- Plant one at a time
-        end
+-- ฟังก์ชันสำหรับ Debounce เพื่อป้องกันการสแปม
+local function CanPerformAction()
+    local currentTime = tick()
+    if currentTime - LastAction >= ActionSpeed then
+        LastAction = currentTime
+        return true
     end
-end
-end)
-
-
+    return false
 end
 
-function AutoHarvestLoop()
-task.spawn(function()
-while Config.AutoHarvest and task.wait(Config.FarmSpeed) do
-if not GameData.Crops then continue end
-local char = GetCharacter()
-if not char then continue end
-
-    for _, crop in ipairs(GameData.Crops:GetChildren()) do
-        -- This condition needs to be specific to the game
-        -- e.g., checking the crop's "Stage" or "Size" property
-        -- Let's assume a fully grown crop has a specific size or property
-        local isMature = (crop.Size.Y > 5) -- Example condition
-        if crop.Name == "Plant" and isMature then
-             local cropPosition = crop.Position
-             Teleport(cropPosition + Vector3.new(0, 3, 0))
-             SafeFireServer("HarvestCrop", crop)
-             Notify("ฟาร์ม", "เก็บเกี่ยว: " .. tostring(crop.Name))
-             task.wait(0.2)
-             break -- Harvest one at a time
-        end
+-- ฟังก์ชันสำหรับการจัดการข้อผิดพลาด
+local function SafeExecute(func, errorMessage)
+    local success, result = pcall(func)
+    if not success then
+        warn("เกิดข้อผิดพลาด: " .. errorMessage .. " - " .. tostring(result))
     end
-end
-end)
-
-
+    return success, result
 end
 
-function AutoSellLoop()
-task.spawn(function()
-while Config.AutoSell and task.wait(Config.FarmSpeed + 1) do -- Selling can be slower
-if not GameData.SellPoint then
-Notify("ขายของ", "หาจุดขายไม่เจอ\!")
-continue
-end
-Teleport(GameData.SellPoint.Position + Vector3.new(0, 5, 0))
-SafeFireServer("SellCrops")
-Notify("ขายของ", "ขายของทั้งหมดแล้ว\!")
-end
-end)
+-- ฟังก์ชันสำหรับสแกนหา RemoteEvents
+local function ScanRemoteEvents()
+    SafeExecute(function()
+        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                GameData.RemoteEvents[obj.Name] = obj
+            end
+        end
+    end, "ไม่สามารถสแกน RemoteEvents ได้")
 end
 
-\-- \#\# BUYING \#\#
-function AutoBuyCheapestSeedLoop()
-task.spawn(function()
-while Config.AutoBuyCheapestSeed and task.wait(Config.FarmSpeed + 1) do
-\-- This is complex and highly game-specific.
-\-- It requires reading the shop's GUI to find the cheapest item.
-local seedShopUI = Player.PlayerGui:FindFirstChild("SeedShop", true)
-if not seedShopUI or not seedShopUI.Visible then
-\-- Teleport to shop if needed
-local shopPart = GameData.Shops and GameData.Shops:FindFirstChild("SeedShop")
-if shopPart then Teleport(shopPart.Position) end
-Notify("ซื้อของ", "กำลังเปิดร้านค้าเมล็ด...")
-task.wait(2) -- Wait for UI to load
-seedShopUI = Player.PlayerGui:FindFirstChild("SeedShop", true)
-if not seedShopUI then
-Notify("Error", "หาร้านค้าเมล็ด UI ไม่เจอ\!")
-continue
-end
-end
-
-    local cheapestSeed = {button = nil, price = math.huge}
-    
-    -- Scan UI for items
-    local itemFrame = seedShopUI:FindFirstChild("ItemsFrame", true)
-    if itemFrame then
-        for _, itemButton in ipairs(itemFrame:GetChildren()) do
-            if itemButton:IsA("TextButton") or itemButton:IsA("ImageButton") then
-                local priceLabel = itemButton:FindFirstChild("PriceLabel")
-                local price = priceLabel and tonumber(priceLabel.Text)
-                if price and price < cheapestSeed.price then
-                    cheapestSeed.button = itemButton
-                    cheapestSeed.price = price
+-- ฟังก์ชันสำหรับสแกนหา NPCs และร้านค้า
+local function ScanGameObjects()
+    SafeExecute(function()
+        local workspace = game.Workspace
+        
+        -- สแกนหา NPCs
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj.Name:lower():find("npc") or obj.Name:lower():find("shop") or obj.Name:lower():find("vendor") then
+                if obj:IsA("Model") or obj:IsA("Part") then
+                    GameData.NPCs[obj.Name] = obj
                 end
             end
         end
-    end
+        
+        -- สแกนหาพืช
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj.Name:lower():find("plant") or obj.Name:lower():find("crop") or obj.Name:lower():find("seed") then
+                if obj:IsA("Model") or obj:IsA("Part") then
+                    GameData.Plants[obj.Name] = obj
+                end
+            end
+        end
+        
+        -- สแกนหาสัตว์เลี้ยง
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj.Name:lower():find("pet") or obj.Name:lower():find("animal") then
+                if obj:IsA("Model") then
+                    GameData.Pets[obj.Name] = obj
+                end
+            end
+        end
+    end, "ไม่สามารถสแกนวัตถุในเกมได้")
+end
+
+-- ฟังก์ชันสำหรับการเทเลพอร์ต
+local function TeleportToPosition(position)
+    SafeExecute(function()
+        if RootPart and position then
+            RootPart.CFrame = CFrame.new(position)
+        end
+    end, "ไม่สามารถเทเลพอร์ตได้")
+end
+
+-- ฟังก์ชันสำหรับโต้ตอบกับ NPC
+local function InteractWithNPC(npcName)
+    if not CanPerformAction() then return false end
     
-    if cheapestSeed.button then
-        Notify("ซื้อของ", "เจอเมล็ดที่ถูกที่สุด! ราคา: " .. cheapestSeed.price)
-        -- The remote might need the item name or the button itself.
-        SafeFireServer("BuyItem", cheapestSeed.button.Name)
-    else
-        Notify("ซื้อของ", "ไม่สามารถหาเมล็ดที่ถูกที่สุดได้")
-    end
+    return SafeExecute(function()
+        local npc = GameData.NPCs[npcName]
+        if npc and npc.Parent then
+            -- เทเลพอร์ตไปหา NPC
+            TeleportToPosition(npc.Position)
+            wait(0.1)
+            
+            -- พยายามโต้ตอบหลายวิธี
+            local clickDetector = npc:FindFirstChild("ClickDetector")
+            if clickDetector then
+                fireclickdetector(clickDetector)
+                return true
+            end
+            
+            -- หรือใช้ ProximityPrompt
+            local proximityPrompt = npc:FindFirstChild("ProximityPrompt")
+            if proximityPrompt then
+                fireproximityprompt(proximityPrompt)
+                return true
+            end
+            
+            -- หรือใช้ RemoteEvent
+            local shopRemote = GameData.RemoteEvents["ShopRemote"] or GameData.RemoteEvents["BuyRemote"]
+            if shopRemote then
+                shopRemote:FireServer(npcName)
+                return true
+            end
+        end
+        return false
+    end, "ไม่สามารถโต้ตอบกับ NPC ได้")
 end
-end)
 
-
-end
-
-\-- \#\# PLAYER \#\#
-function AutoEquipBestPetLoop()
-task.spawn(function()
-while Config.AutoEquipBestPet and task.wait(5) do -- No need to run this too fast
-local petInventory = Player:FindFirstChild("PetInventory")
-if not petInventory then
-Notify("สัตว์เลี้ยง", "หา Pet Inventory ไม่เจอ\!")
-continue
-end
-
-    local bestPet = {instance = nil, multiplier = 0}
+-- ฟังก์ชันสำหรับการซื้อไอเทม
+local function BuyItem(itemName, quantity)
+    if not CanPerformAction() then return false end
     
-    for _, pet in ipairs(petInventory:GetChildren()) do
-        local multiplierValue = pet:FindFirstChild("Multiplier")
-        if multiplierValue and multiplierValue.Value > bestPet.multiplier then
-            bestPet.instance = pet
-            bestPet.multiplier = multiplierValue.Value
+    return SafeExecute(function()
+        -- ตรวจสอบเงินก่อนซื้อ
+        local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+        local moneyGui = playerGui:FindFirstChild("MoneyGui") or playerGui:FindFirstChild("CurrencyGui")
+        
+        if moneyGui then
+            local moneyLabel = moneyGui:FindFirstChild("MoneyLabel") or moneyGui:FindFirstChild("CurrencyLabel")
+            if moneyLabel then
+                local currentMoney = tonumber(moneyLabel.Text:gsub("%D", ""))
+                if currentMoney and currentMoney < 100 then -- ตรวจสอบเงินขั้นต่ำ
+                    warn("เงินไม่เพียงพอสำหรับการซื้อ " .. itemName)
+                    return false
+                end
+            end
+        end
+        
+        -- พยายามซื้อไอเทม
+        local buyRemote = GameData.RemoteEvents["BuyItem"] or GameData.RemoteEvents["Purchase"] or GameData.RemoteEvents["Shop"]
+        if buyRemote then
+            buyRemote:FireServer(itemName, quantity or 1)
+            return true
+        end
+        
+        return false
+    end, "ไม่สามารถซื้อไอเทมได้")
+end
+
+-- ฟังก์ชันสำหรับการปลูกพืช
+local function PlantSeed(seedName, plotPosition)
+    if not CanPerformAction() then return false end
+    
+    return SafeExecute(function()
+        local plantRemote = GameData.RemoteEvents["PlantSeed"] or GameData.RemoteEvents["Plant"]
+        if plantRemote then
+            if plotPosition then
+                TeleportToPosition(plotPosition)
+                wait(0.1)
+            end
+            plantRemote:FireServer(seedName, plotPosition)
+            return true
+        end
+        return false
+    end, "ไม่สามารถปลูกพืชได้")
+end
+
+-- ฟังก์ชันสำหรับการเก็บเกี่ยว
+local function HarvestPlant(plantPosition)
+    if not CanPerformAction() then return false end
+    
+    return SafeExecute(function()
+        local harvestRemote = GameData.RemoteEvents["Harvest"] or GameData.RemoteEvents["Collect"]
+        if harvestRemote then
+            TeleportToPosition(plantPosition)
+            wait(0.1)
+            harvestRemote:FireServer(plantPosition)
+            return true
+        end
+        return false
+    end, "ไม่สามารถเก็บเกี่ยวได้")
+end
+
+-- ฟังก์ชันสำหรับการขายผลผลิต
+local function SellProduce(itemName, quantity)
+    if not CanPerformAction() then return false end
+    
+    return SafeExecute(function()
+        local sellRemote = GameData.RemoteEvents["SellItem"] or GameData.RemoteEvents["Sell"]
+        if sellRemote then
+            sellRemote:FireServer(itemName, quantity or "all")
+            return true
+        end
+        return false
+    end, "ไม่สามารถขายผลผลิตได้")
+end
+
+-- ฟังก์ชันสำหรับการสวมสัตว์เลี้ยง
+local function EquipPet(petName)
+    if not CanPerformAction() then return false end
+    
+    return SafeExecute(function()
+        local equipRemote = GameData.RemoteEvents["EquipPet"] or GameData.RemoteEvents["Pet"]
+        if equipRemote then
+            equipRemote:FireServer(petName)
+            return true
+        end
+        return false
+    end, "ไม่สามารถสวมสัตว์เลี้ยงได้")
+end
+
+-- ฟังก์ชันสำหรับการเก็บรางวัล
+local function ClaimRewards()
+    if not CanPerformAction() then return false end
+    
+    return SafeExecute(function()
+        local claimRemote = GameData.RemoteEvents["ClaimReward"] or GameData.RemoteEvents["Claim"]
+        if claimRemote then
+            claimRemote:FireServer()
+            return true
+        end
+        return false
+    end, "ไม่สามารถเก็บรางวัลได้")
+end
+
+-- ระบบ Anti-AFK
+local function StartAntiAFK()
+    spawn(function()
+        while AntiAFKEnabled do
+            SafeExecute(function()
+                -- ส่งสัญญาณการเคลื่อนไหว
+                local VirtualUser = game:service('VirtualUser')
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end, "Anti-AFK ล้มเหลว")
+            wait(60) -- ทุกๆ 1 นาที
+        end
+    end)
+end
+
+-- ระบบ Auto Reconnect
+local function SetupAutoReconnect()
+    LocalPlayer.OnTeleport:Connect(function(State)
+        if State == Enum.TeleportState.Started then
+            SafeExecute(function()
+                syn.queue_on_teleport(game:HttpGet("https://raw.githubusercontent.com/DDME36/AutoRoblox/main/grow_garden_script.lua"))
+            end, "Auto Reconnect ล้มเหลว")
+        end
+    end)
+end
+
+-- ฟังก์ชันหลักสำหรับ Auto Farm
+local function StartAutoFarm()
+    spawn(function()
+        while AutoFarmEnabled do
+            SafeExecute(function()
+                -- ตรวจสอบพืชที่พร้อมเก็บเกี่ยว
+                for plantName, plant in pairs(GameData.Plants) do
+                    if plant and plant.Parent then
+                        -- ตรวจสอบว่าพืชโตแล้วหรือไม่
+                        local grownIndicator = plant:FindFirstChild("Grown") or plant:FindFirstChild("Ready")
+                        if grownIndicator and grownIndicator.Value == true then
+                            HarvestPlant(plant.Position)
+                        end
+                    end
+                end
+                
+                -- ปลูกพืชใหม่ในช่องว่าง
+                for i = 1, 10 do -- ปลูกสูงสุด 10 ต้น
+                    local plotPosition = Vector3.new(i * 5, 0, 0) -- ตำแหน่งแปลงตัวอย่าง
+                    PlantSeed("Carrot", plotPosition)
+                end
+                
+                -- ขายผลผลิต
+                SellProduce("Carrot", "all")
+                
+            end, "Auto Farm ล้มเหลว")
+            wait(ActionSpeed)
+        end
+    end)
+end
+
+-- ฟังก์ชันสำหรับ Auto Buy
+local function StartAutoBuy()
+    spawn(function()
+        while AutoBuyEnabled do
+            SafeExecute(function()
+                -- ซื้อเมล็ดพันธุ์
+                BuyItem("CarrotSeed", 10)
+                BuyItem("TomatoSeed", 10)
+                BuyItem("CornSeed", 5)
+                
+                -- ซื้อไข่สัตว์เลี้ยง
+                BuyItem("ChickenEgg", 1)
+                BuyItem("DogEgg", 1)
+                
+            end, "Auto Buy ล้มเหลว")
+            wait(ActionSpeed * 2)
+        end
+    end)
+end
+
+-- ฟังก์ชันสำหรับ Auto Equip Pet
+local function StartAutoEquipPet()
+    spawn(function()
+        while AutoEquipPetEnabled do
+            SafeExecute(function()
+                -- หาสัตว์เลี้ยงที่ดีที่สุด
+                local bestPet = nil
+                local bestRarity = 0
+                
+                for petName, pet in pairs(GameData.Pets) do
+                    local rarity = pet:GetAttribute("Rarity") or 1
+                    if rarity > bestRarity then
+                        bestRarity = rarity
+                        bestPet = petName
+                    end
+                end
+                
+                if bestPet then
+                    EquipPet(bestPet)
+                end
+                
+            end, "Auto Equip Pet ล้มเหลว")
+            wait(ActionSpeed * 5)
+        end
+    end)
+end
+
+-- ฟังก์ชันสำหรับ Auto Claim Rewards
+local function StartAutoClaimRewards()
+    spawn(function()
+        while AutoClaimRewardsEnabled do
+            SafeExecute(function()
+                ClaimRewards()
+            end, "Auto Claim Rewards ล้มเหลว")
+            wait(ActionSpeed * 10)
+        end
+    end)
+end
+
+-- สร้าง UI หลัก
+local Window = OrionLib:MakeWindow({
+    Name = "🌱 Grow a Garden - เครื่องมือช่วยเหลือ",
+    HidePremium = false,
+    SaveConfig = true,
+    ConfigFolder = "GrowGardenHelper",
+    IntroEnabled = true,
+    IntroText = "เครื่องมือช่วยเหลือสำหรับ Grow a Garden",
+    IntroIcon = "rbxassetid://4483345998"
+})
+
+-- หน้าแรก - ระบบอัตโนมัติหลัก
+local MainTab = Window:MakeTab({
+    Name = "🏠 หน้าแรก",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+-- ส่วนควบคุมหลัก
+local MainSection = MainTab:AddSection({
+    Name = "⚙️ ระบบอัตโนมัติหลัก"
+})
+
+MainSection:AddToggle({
+    Name = "🌾 Auto Farm (เก็บเกี่ยว-ปลูก)",
+    Default = false,
+    Callback = function(Value)
+        AutoFarmEnabled = Value
+        if Value then
+            StartAutoFarm()
         end
     end
-    
-    if bestPet.instance then
-        Notify("สัตว์เลี้ยง", "กำลังสวมใส่: " .. bestPet.instance.Name .. " (x" .. bestPet.multiplier .. ")")
-        SafeFireServer("EquipPet", bestPet.instance)
+})
+
+MainSection:AddToggle({
+    Name = "🛒 Auto Buy (ซื้อเมล็ด-ไอเทม)",
+    Default = false,
+    Callback = function(Value)
+        AutoBuyEnabled = Value
+        if Value then
+            StartAutoBuy()
+        end
     end
+})
+
+MainSection:AddToggle({
+    Name = "🐕 Auto Equip Pet (สวมสัตว์เลี้ยง)",
+    Default = false,
+    Callback = function(Value)
+        AutoEquipPetEnabled = Value
+        if Value then
+            StartAutoEquipPet()
+        end
+    end
+})
+
+MainSection:AddToggle({
+    Name = "🎁 Auto Claim Rewards (เก็บรางวัล)",
+    Default = false,
+    Callback = function(Value)
+        AutoClaimRewardsEnabled = Value
+        if Value then
+            StartAutoClaimRewards()
+        end
+    end
+})
+
+-- ส่วนการตั้งค่า
+local SettingsSection = MainTab:AddSection({
+    Name = "🔧 การตั้งค่า"
+})
+
+SettingsSection:AddSlider({
+    Name = "⚡ ความเร็วการทำงาน (วินาที)",
+    Min = 0.1,
+    Max = 5,
+    Default = 0.5,
+    Color = Color3.fromRGB(255, 255, 255),
+    Increment = 0.1,
+    ValueName = "วินาที",
+    Callback = function(Value)
+        ActionSpeed = Value
+    end
+})
+
+SettingsSection:AddToggle({
+    Name = "🛡️ Anti-AFK (ป้องกันการหลุด)",
+    Default = true,
+    Callback = function(Value)
+        AntiAFKEnabled = Value
+    end
+})
+
+-- หน้าการซื้อขาย
+local ShopTab = Window:MakeTab({
+    Name = "🛒 ร้านค้า",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+local ShopSection = ShopTab:AddSection({
+    Name = "🛍️ ซื้อไอเทม"
+})
+
+-- รายการไอเทมที่สามารถซื้อได้
+local ItemsList = {"CarrotSeed", "TomatoSeed", "CornSeed", "ChickenEgg", "DogEgg", "Fertilizer", "WateringCan"}
+local SelectedItem = "CarrotSeed"
+
+ShopSection:AddDropdown({
+    Name = "เลือกไอเทม",
+    Default = "CarrotSeed",
+    Options = ItemsList,
+    Callback = function(Value)
+        SelectedItem = Value
+    end
+})
+
+ShopSection:AddButton({
+    Name = "💰 ซื้อไอเทมที่เลือก",
+    Callback = function()
+        BuyItem(SelectedItem, 1)
+        OrionLib:MakeNotification({
+            Name = "การซื้อ",
+            Content = "พยายามซื้อ " .. SelectedItem,
+            Image = "rbxassetid://4483345998",
+            Time = 3
+        })
+    end
+})
+
+ShopSection:AddButton({
+    Name = "🛒 ซื้อทั้งหมด (แพคเกจ)",
+    Callback = function()
+        for _, item in pairs(ItemsList) do
+            BuyItem(item, 5)
+            wait(0.1)
+        end
+        OrionLib:MakeNotification({
+            Name = "การซื้อ",
+            Content = "ซื้อทุกไอเทมเสร็จสิ้น",
+            Image = "rbxassetid://4483345998",
+            Time = 3
+        })
+    end
+})
+
+-- หน้าสัตว์เลี้ยง
+local PetTab = Window:MakeTab({
+    Name = "🐾 สัตว์เลี้ยง",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+local PetSection = PetTab:AddSection({
+    Name = "🐕 จัดการสัตว์เลี้ยง"
+})
+
+local PetsList = {"Dog", "Cat", "Chicken", "Cow", "Horse"}
+local SelectedPet = "Dog"
+
+PetSection:AddDropdown({
+    Name = "เลือกสัตว์เลี้ยง",
+    Default = "Dog",
+    Options = PetsList,
+    Callback = function(Value)
+        SelectedPet = Value
+    end
+})
+
+PetSection:AddButton({
+    Name = "👕 สวมสัตว์เลี้ยง",
+    Callback = function()
+        EquipPet(SelectedPet)
+        OrionLib:MakeNotification({
+            Name = "สัตว์เลี้ยง",
+            Content = "สวม " .. SelectedPet .. " แล้ว",
+            Image = "rbxassetid://4483345998",
+            Time = 3
+        })
+    end
+})
+
+-- หน้าข้อมูลและเครดิต
+local InfoTab = Window:MakeTab({
+    Name = "ℹ️ ข้อมูล",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+local InfoSection = InfoTab:AddSection({
+    Name = "📋 ข้อมูลเครื่องมือ"
+})
+
+InfoSection:AddParagraph("เกี่ยวกับเครื่องมือ", "เครื่องมือนี้ถูกสร้างขึ้นเพื่อช่วยในการทดสอบและปรับปรุงประสบการณ์ในเกม Grow a Garden ไม่ใช่เพื่อการโกงหรือละเมิดกฎของ Roblox")
+
+InfoSection:AddParagraph("วิธีใช้งาน", "1. เปิดใช้งานระบบอัตโนมัติที่ต้องการ\n2. ปรับความเร็วตามความเหมาะสม\n3. ตรวจสอบการทำงานเป็นระยะ")
+
+InfoSection:AddParagraph("คำแนะนำ", "• ใช้ความเร็วปานกลาง (0.5-1 วินาที)\n• เปิด Anti-AFK เพื่อป้องกันการหลุด\n• ตรวจสอบเงินก่อนใช้ Auto Buy")
+
+InfoSection:AddButton({
+    Name = "🔄 รีเฟรชข้อมูลเกม",
+    Callback = function()
+        ScanGameObjects()
+        ScanRemoteEvents()
+        OrionLib:MakeNotification({
+            Name = "ระบบ",
+            Content = "รีเฟรชข้อมูลเกมแล้ว",
+            Image = "rbxassetid://4483345998",
+            Time = 3
+        })
+    end
+})
+
+-- ปุ่มย่อหน้าต่าง
+local MinimizeSection = InfoTab:AddSection({
+    Name = "🖥️ การจัดการหน้าต่าง"
+})
+
+MinimizeSection:AddButton({
+    Name = "📦 ย่อหน้าต่าง",
+    Callback = function()
+        OrionLib:MakeNotification({
+            Name = "หน้าต่าง",
+            Content = "ย่อหน้าต่างแล้ว กด RightShift เพื่อเปิด",
+            Image = "rbxassetid://4483345998",
+            Time = 5
+        })
+        OrionLib:Destroy()
+        
+        -- สร้างไอคอนย่อ
+        local ScreenGui = Instance.new("ScreenGui")
+        ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+        
+        local IconFrame = Instance.new("Frame")
+        IconFrame.Size = UDim2.new(0, 50, 0, 50)
+        IconFrame.Position = UDim2.new(0, 10, 0, 10)
+        IconFrame.BackgroundColor3 = Color3.fromRGB(0, 162, 255)
+        IconFrame.Parent = ScreenGui
+        
+        local IconLabel = Instance.new("TextLabel")
+        IconLabel.Size = UDim2.new(1, 0, 1, 0)
+        IconLabel.Text = "🌱"
+        IconLabel.TextScaled = true
+        IconLabel.BackgroundTransparency = 1
+        IconLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        IconLabel.Parent = IconFrame
+        
+        -- ปุ่มเปิด UI อีกครั้ง
+        local Button = Instance.new("TextButton")
+        Button.Size = UDim2.new(1, 0, 1, 0)
+        Button.BackgroundTransparency = 1
+        Button.Text = ""
+        Button.Parent = IconFrame
+        
+        Button.MouseButton1Click:Connect(function()
+            ScreenGui:Destroy()
+            -- โหลดสคริปต์ใหม่
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/DDME36/AutoRoblox/main/grow_garden_script.lua"))()
+        end)
+    end
+})
+
+-- ตั้งค่า hotkey สำหรับเปิด/ปิด UI
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        -- Toggle UI
+        if OrionLib then
+            OrionLib:Destroy()
+        else
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/DDME36/AutoRoblox/main/grow_garden_script.lua"))()
+        end
+    end
+end)
+
+-- เริ่มต้นระบบ
+local function InitializeScript()
+    OrionLib:MakeNotification({
+        Name = "🌱 Grow a Garden Helper",
+        Content = "เครื่องมือช่วยเหลือพร้อมใช้งาน!",
+        Image = "rbxassetid://4483345998",
+        Time = 5
+    })
+    
+    -- สแกนข้อมูลเกม
+    ScanGameObjects()
+    ScanRemoteEvents()
+    
+    -- เริ่มต้นระบบป้องกัน
+    StartAntiAFK()
+    SetupAutoReconnect()
+    
+    -- อัพเดทข้อมูลเป็นระยะ
+    spawn(function()
+        while ScriptEnabled do
+            wait(30) -- ทุกๆ 30 วินาที
+            ScanGameObjects()
+            ScanRemoteEvents()
+        end
+    end)
+    
+    -- ตรวจสอบการเชื่อมต่อ
+    spawn(function()
+        while ScriptEnabled do
+            wait(5)
+            if not LocalPlayer.Parent then
+                -- ผู้เล่นถูกเตะออกจากเกม
+                TeleportService:Teleport(game.PlaceId, LocalPlayer)
+                break
+            end
+        end
+    end)
 end
-end)
 
-
+-- Hook RemoteEvent เพื่อจับพารามิเตอร์
+local function HookRemoteEvents()
+    local mt = getrawmetatable(game)
+    local oldNameCall = mt.__namecall
+    
+    setreadonly(mt, false)
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        
+        if method == "FireServer" and self.Name then
+            -- บันทึกการเรียกใช้ RemoteEvent
+            if self.Name:lower():find("buy") or self.Name:lower():find("purchase") then
+                print("🛒 การซื้อ: " .. self.Name .. " พารามิเตอร์: " .. table.concat(args, ", "))
+            elseif self.Name:lower():find("plant") or self.Name:lower():find("seed") then
+                print("🌱 การปลูก: " .. self.Name .. " พารามิเตอร์: " .. table.concat(args, ", "))
+            elseif self.Name:lower():find("harvest") or self.Name:lower():find("collect") then
+                print("🌾 การเก็บเกี่ยว: " .. self.Name .. " พารามิเตอร์: " .. table.concat(args, ", "))
+            elseif self.Name:lower():find("sell") then
+                print("💰 การขาย: " .. self.Name .. " พารามิเตอร์: " .. table.concat(args, ", "))
+            elseif self.Name:lower():find("pet") or self.Name:lower():find("equip") then
+                print("🐾 สัตว์เลี้ยง: " .. self.Name .. " พารามิเตอร์: " .. table.concat(args, ", "))
+            end
+        end
+        
+        return oldNameCall(self, ...)
+    end)
+    setreadonly(mt, true)
 end
 
-\-- \#\# MISC \#\#
-function AntiAFKLoop()
-task.spawn(function()
-local VirtualUser = game:GetService('VirtualUser')
-Player.Idled:Connect(function()
-VirtualUser:CaptureController()
-VirtualUser:ClickButton2(Vector2.new())
-end)
-while Config.AntiAFK and task.wait(120) do
-Notify("Anti-AFK", "ป้องกันการหลุดจากเกม...")
+-- ฟังก์ชันสำหรับหาไอเทมที่ถูกที่สุด
+local function FindCheapestItem(itemType)
+    local cheapest = nil
+    local lowestPrice = math.huge
+    
+    SafeExecute(function()
+        for itemName, itemData in pairs(GameData.Items) do
+            if itemData.Type == itemType and itemData.Price < lowestPrice then
+                lowestPrice = itemData.Price
+                cheapest = itemName
+            end
+        end
+    end, "ไม่สามารถหาไอเทมที่ถูกที่สุดได้")
+    
+    return cheapest
 end
-end)
+
+-- ฟังก์ชันสำหรับหาแปลงที่ว่าง
+local function FindEmptyPlot()
+    local emptyPlots = {}
+    
+    SafeExecute(function()
+        local plotsFolder = game.Workspace:FindFirstChild("Plots") or game.Workspace:FindFirstChild("Farm")
+        if plotsFolder then
+            for _, plot in pairs(plotsFolder:GetChildren()) do
+                if plot:IsA("Model") or plot:IsA("Part") then
+                    local occupied = plot:FindFirstChild("Plant") or plot:FindFirstChild("Crop")
+                    if not occupied then
+                        table.insert(emptyPlots, plot)
+                    end
+                end
+            end
+        end
+    end, "ไม่สามารถหาแปลงที่ว่างได้")
+    
+    return emptyPlots
 end
 
-\-- =================================================================================================
-\-- || UI Construction ||
-\-- =================================================================================================
+-- ฟังก์ชันสำหรับหาพืชที่พร้อมเก็บเกี่ยว
+local function FindReadyPlants()
+    local readyPlants = {}
+    
+    SafeExecute(function()
+        local plotsFolder = game.Workspace:FindFirstChild("Plots") or game.Workspace:FindFirstChild("Farm")
+        if plotsFolder then
+            for _, plot in pairs(plotsFolder:GetChildren()) do
+                if plot:IsA("Model") or plot:IsA("Part") then
+                    local plant = plot:FindFirstChild("Plant") or plot:FindFirstChild("Crop")
+                    if plant then
+                        local grownValue = plant:FindFirstChild("Grown") or plant:FindFirstChild("Ready")
+                        if grownValue and grownValue.Value == true then
+                            table.insert(readyPlants, plant)
+                        end
+                    end
+                end
+            end
+        end
+    end, "ไม่สามารถหาพืชที่พร้อมเก็บเกี่ยวได้")
+    
+    return readyPlants
+end
 
-FindGameAssets()
+-- ฟังก์ชันสำหรับอัพเดทข้อมูลผู้เล่น
+local function UpdatePlayerStats()
+    SafeExecute(function()
+        local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+        
+        -- หาเงิน
+        local moneyGui = playerGui:FindFirstChild("MoneyGui") or playerGui:FindFirstChild("CurrencyGui") or playerGui:FindFirstChild("Cash")
+        if moneyGui then
+            local moneyLabel = moneyGui:FindFirstChild("MoneyLabel") or moneyGui:FindFirstChild("CurrencyLabel") or moneyGui:FindFirstChild("CashLabel")
+            if moneyLabel then
+                GameData.PlayerStats.Money = tonumber(moneyLabel.Text:gsub("%D", "")) or 0
+            end
+        end
+        
+        -- หาเลเวล
+        local levelGui = playerGui:FindFirstChild("LevelGui") or playerGui:FindFirstChild("Level")
+        if levelGui then
+            local levelLabel = levelGui:FindFirstChild("LevelLabel") or levelGui:FindFirstChild("Level")
+            if levelLabel then
+                GameData.PlayerStats.Level = tonumber(levelLabel.Text:gsub("%D", "")) or 1
+            end
+        end
+        
+        -- หา XP
+        local xpGui = playerGui:FindFirstChild("XPGui") or playerGui:FindFirstChild("Experience")
+        if xpGui then
+            local xpLabel = xpGui:FindFirstChild("XPLabel") or xpGui:FindFirstChild("ExperienceLabel")
+            if xpLabel then
+                GameData.PlayerStats.XP = tonumber(xpLabel.Text:gsub("%D", "")) or 0
+            end
+        end
+        
+    end, "ไม่สามารถอัพเดทข้อมูลผู้เล่นได้")
+end
 
-local window = InfinityUI.CreateWindow("Grow a Garden | Gemini Hub V2")
-window:SetParent(getcoregui() or Player.PlayerGui)
+-- ฟังก์ชันสำหรับการใช้งาน Auto Farm ที่ปรับปรุงแล้ว
+local function ImprovedAutoFarm()
+    spawn(function()
+        while AutoFarmEnabled do
+            SafeExecute(function()
+                -- อัพเดทข้อมูลผู้เล่น
+                UpdatePlayerStats()
+                
+                -- 1. เก็บเกี่ยวพืชที่พร้อมก่อน
+                local readyPlants = FindReadyPlants()
+                for _, plant in pairs(readyPlants) do
+                    if plant and plant.Parent then
+                        HarvestPlant(plant.Position)
+                        wait(ActionSpeed)
+                    end
+                end
+                
+                -- 2. ขายผลผลิต
+                local produceItems = {"Carrot", "Tomato", "Corn", "Wheat", "Potato"}
+                for _, item in pairs(produceItems) do
+                    SellProduce(item, "all")
+                    wait(0.1)
+                end
+                
+                -- 3. หาแปลงที่ว่างและปลูกพืช
+                local emptyPlots = FindEmptyPlot()
+                local seedsToPlant = {"CarrotSeed", "TomatoSeed", "CornSeed"}
+                
+                for i, plot in pairs(emptyPlots) do
+                    if i <= #seedsToPlant then
+                        local seed = seedsToPlant[((i-1) % #seedsToPlant) + 1]
+                        PlantSeed(seed, plot.Position)
+                        wait(ActionSpeed)
+                    end
+                end
+                
+                -- 4. ตรวจสอบและซื้อเมล็ดเพิ่มถ้าเงินเพียงพอ
+                if GameData.PlayerStats.Money and GameData.PlayerStats.Money > 500 then
+                    for _, seed in pairs(seedsToPlant) do
+                        BuyItem(seed, 5)
+                        wait(0.1)
+                    end
+                end
+                
+            end, "Improved Auto Farm ล้มเหลว")
+            wait(ActionSpeed * 2)
+        end
+    end)
+end
 
-\-- Tab: ฟาร์ม
-local farmTab = window:AddTab("🏡 ฟาร์ม")
-farmTab:AddToggle("🌱 ปลูกผักอัตโนมัติ", function(toggled)
-Config.AutoPlant = toggled
-if toggled then AutoPlantLoop() end
-end)
-farmTab:AddToggle("✂️ เก็บเกี่ยวอัตโนมัติ", function(toggled)
-Config.AutoHarvest = toggled
-if toggled then AutoHarvestLoop() end
-end)
-farmTab:AddToggle("💰 ขายของอัตโนมัติ", function(toggled)
-Config.AutoSell = toggled
-if toggled then AutoSellLoop() end
-end)
-farmTab:AddSlider("⏱️ ความเร็วฟาร์ม (วินาที)", 0.2, 5, Config.FarmSpeed, function(value)
-Config.FarmSpeed = value
+-- ฟังก์ชันสำหรับการใช้งาน Auto Buy ที่ปรับปรุงแล้ว
+local function ImprovedAutoBuy()
+    spawn(function()
+        while AutoBuyEnabled do
+            SafeExecute(function()
+                UpdatePlayerStats()
+                
+                if GameData.PlayerStats.Money and GameData.PlayerStats.Money > 100 then
+                    -- ซื้อเมล็ดที่จำเป็น
+                    local essentialSeeds = {"CarrotSeed", "TomatoSeed", "CornSeed"}
+                    for _, seed in pairs(essentialSeeds) do
+                        BuyItem(seed, 10)
+                        wait(0.1)
+                    end
+                    
+                    -- ซื้อเครื่องมือ
+                    if GameData.PlayerStats.Money > 1000 then
+                        BuyItem("WateringCan", 1)
+                        BuyItem("Fertilizer", 5)
+                    end
+                    
+                    -- ซื้อสัตว์เลี้ยงถ้าเงินเพียงพอ
+                    if GameData.PlayerStats.Money > 5000 then
+                        BuyItem("ChickenEgg", 1)
+                        BuyItem("DogEgg", 1)
+                    end
+                end
+                
+            end, "Improved Auto Buy ล้มเหลว")
+            wait(ActionSpeed * 3)
+        end
+    end)
+end
+
+-- ฟังก์ชันสำหรับตรวจสอบและแจ้งเตือน
+local function NotificationSystem()
+    spawn(function()
+        while ScriptEnabled do
+            wait(60) -- ตรวจสอบทุกนาที
+            
+            SafeExecute(function()
+                UpdatePlayerStats()
+                
+                -- แจ้งเตือนเงินน้อย
+                if GameData.PlayerStats.Money and GameData.PlayerStats.Money < 50 then
+                    OrionLib:MakeNotification({
+                        Name = "⚠️ เงินเหลือน้อย",
+                        Content = "เงินเหลือ " .. GameData.PlayerStats.Money .. " หยุด Auto Buy ชั่วคราว",
+                        Image = "rbxassetid://4483345998",
+                        Time = 5
+                    })
+                end
+                
+                -- แจ้งเตือนเลเวลอัพ
+                if GameData.PlayerStats.Level and GameData.PlayerStats.Level > (GameData.PlayerStats.LastLevel or 1) then
+                    OrionLib:MakeNotification({
+                        Name = "🎉 เลเวลอัพ!",
+                        Content = "ขึ้นเลเวล " .. GameData.PlayerStats.Level .. " แล้ว!",
+                        Image = "rbxassetid://4483345998",
+                        Time = 5
+                    })
+                    GameData.PlayerStats.LastLevel = GameData.PlayerStats.Level
+                end
+                
+            end, "ระบบแจ้งเตือนล้มเหลว")
+        end
+    end)
+end
+
+-- เริ่มต้นระบบทั้งหมด
+HookRemoteEvents()
+InitializeScript()
+NotificationSystem()
+
+-- แทนที่ฟังก์ชัน Auto Farm และ Auto Buy เดิมด้วยเวอร์ชันที่ปรับปรุงแล้ว
+local function ReplaceAutoFarmFunction()
+    -- อัพเดทฟังก์ชัน Auto Farm ในส่วน Toggle
+    MainSection:AddToggle({
+        Name = "🌾 Auto Farm (เก็บเกี่ยว-ปลูก) - ปรับปรุงแล้ว",
+        Default = false,
+        Callback = function(Value)
+            AutoFarmEnabled = Value
+            if Value then
+                ImprovedAutoFarm()
+            end
+        end
+    })
+    
+    -- อัพเดทฟังก์ชัน Auto Buy ในส่วน Toggle
+    MainSection:AddToggle({
+        Name = "🛒 Auto Buy (ซื้อเมล็ด-ไอเทม) - ปรับปรุงแล้ว",
+        Default = false,
+        Callback = function(Value)
+            AutoBuyEnabled = Value
+            if Value then
+                ImprovedAutoBuy()
+            end
+        end
+    })
+end
+
+-- เพิ่มปุ่มสำหรับการทดสอบ
+local TestSection = InfoTab:AddSection({
+    Name = "🧪 การทดสอบ"
+})
+
+TestSection:AddButton({
+    Name = "🔍 ทดสอบหาพืชพร้อมเก็บเกี่ยว",
+    Callback = function()
+        local readyPlants = FindReadyPlants()
+        OrionLib:MakeNotification({
+            Name = "ผลการทดสอบ",
+            Content = "พบพืชพร้อมเก็บเกี่ยว " .. #readyPlants .. " ต้น",
+            Image = "rbxassetid://4483345998",
+            Time = 3
+        })
+    end
+})
+
+TestSection:AddButton({
+    Name = "📊 แสดงข้อมูลผู้เล่น",
+    Callback = function()
+        UpdatePlayerStats()
+        OrionLib:MakeNotification({
+            Name = "ข้อมูลผู้เล่น",
+            Content = "เงิน: " .. (GameData.PlayerStats.Money or 0) .. " | เลเวล: " .. (GameData.PlayerStats.Level or 1),
+            Image = "rbxassetid://4483345998",
+            Time = 5
+        })
+    end
+})
+
+TestSection:AddButton({
+    Name = "🎯 ทดสอบการเทเลพอร์ต",
+    Callback = function()
+        TeleportToPosition(Vector3.new(0, 5, 0))
+        OrionLib:MakeNotification({
+            Name = "การเทเลพอร์ต",
+            Content = "เทเลพอร์ตไปยังตำแหน่งทดสอบแล้ว",
+            Image = "rbxassetid://4483345998",
+            Time = 3
+        })
+    end
+})
+
+-- สุดท้าย - ปิดการทำงานของสคริปต์
+OrionLib.Destroying:Connect(function()
+    ScriptEnabled = false
+    AutoFarmEnabled = false
+    AutoBuyEnabled = false
+    AutoEquipPetEnabled = false
+    AutoClaimRewardsEnabled = false
+    AntiAFKEnabled = false
+    
+    print("🌱 Grow a Garden Helper ถูกปิดเรียบร้อยแล้ว")
 end)
 
-\-- Tab: ซื้อของ
-local buyTab = window:AddTab("🛒 ซื้อของ")
-buyTab:AddToggle("💸 ซื้อเมล็ดพันธุ์ถูกสุด", function(toggled)
-Config.AutoBuyCheapestSeed = toggled
-if toggled then AutoBuyCheapestSeedLoop() end
-end)
-buyTab:AddButton("🥚 ซื้อไข่ทั้งหมด (เร็วๆ นี้)", function()
-Notify("Info", "ฟังก์ชันนี้ยังไม่เปิดใช้งาน")
-end)
-buyTab:AddButton("🏪 ซื้อร้านค้าทั้งหมด (เร็วๆ นี้)", function()
-Notify("Info", "ฟังก์ชันนี้ยังไม่เปิดใช้งาน")
-end)
-
-\-- Tab: ผู้เล่น
-local playerTab = window:AddTab("👤 ผู้เล่น")
-playerTab:AddToggle("🐶 สวมใส่สัตว์เลี้ยงดีสุด", function(toggled)
-Config.AutoEquipBestPet = toggled
-if toggled then AutoEquipBestPetLoop() end
-end)
-playerTab:AddButton("♻️ รีเฟรชหาจุดต่างๆ ในเกม", function()
-Notify("System", "กำลังสแกนหาจุดสำคัญในเกมใหม่...")
-FindGameAssets()
-Notify("System", "สแกนเสร็จสิ้น\!")
-end)
-
-\-- Tab: เบ็ดเตล็ด
-local miscTab = window:AddTab("⚙️ เบ็ดเตล็ด")
-miscTab:AddToggle("🚫 กันหลุด (Anti-AFK)", function(toggled)
-Config.AntiAFK = toggled
-if toggled then AntiAFKLoop() end
-end)
-
-Notify("System", "สคริปต์ Grow a Garden โดย Gemini โหลดเสร็จสมบูรณ์\!")
-Notify("System", "คลิกไอคอนรูปเฟือง ⚙️ เพื่อเปิด/ปิดหน้าต่าง")
+OrionLib:Init()
